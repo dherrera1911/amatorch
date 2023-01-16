@@ -1,0 +1,16 @@
+from IPython.nbformat import v3, v4
+
+inputFile = "./scripts/ama_training_dsp.py"
+outputFile = "./notebooks/ama_training_dsp.ipynb"
+
+fpin = open(inputFile)
+text = fpin.read()
+
+nbook = v3.reads_py(text)
+nbook = v4.upgrade(nbook)  # Upgrade v3 to v4
+
+jsonform = v4.writes(nbook) + "\n"
+
+fpout = open(outputFile, "w")
+fpout.write(jsonform)
+

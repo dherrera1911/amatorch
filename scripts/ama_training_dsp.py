@@ -1,3 +1,15 @@
+# <markdowncell>
+
+# #Disparity estimation and effect of batch size
+# 
+# Train AMA on the task of disparity estimation. Compare
+# the filters learned with different batch sizes, as well
+# as model performance and training time
+
+# <codecell>
+##############
+#### IMPORT PACKAGES
+##############
 import scipy.io as spio
 import numpy as np
 import torch
@@ -5,21 +17,33 @@ import matplotlib.pyplot as plt
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import TensorDataset, DataLoader
-import geotorch
-from ama_library.ama_class import *
-from ama_library.ama_utilities import *
-#%%
 
-###### LOAD AMA DATA
+# <codecell>
+##### COMMENT THIS CELL WHEN USING GOOGLE COLAB
+import geotorch
+from ama_library import *
+
+# <codecell>
+#### UNCOMMENT THIS CELL FOR GOOGLE COLAB EXECUTION
+#!pip install geotorch
+#import geotorch
+#pip install git+https://github.com/dherrera1911/accuracy_maximization_analysis.git
+#from ama_library import *
+#!wget -qO ./data/ https://github.com/burgelab/AMA/blob/master/AMAdataDisparity.mat
+
+# <codecell>
+##############
+#### LOAD AMA DATA
+##############
 # Load ama struct from .mat file into Python
-data = spio.loadmat('./data/amaR01_TestData_Disparity.mat')
+data = spio.loadmat('./data/AMAdataDisparity.mat')
 # Extract contrast normalized, noisy stimulus
-s = data.get("sBig")
+s = data.get("s")
 s = torch.from_numpy(s)
 s = s.transpose(0,1)
 s = s.float()
 # Extract the vector indicating category of each stimulus row
-ctgInd = data.get("ctgIndBig")
+ctgInd = data.get("ctgInd")
 ctgInd = torch.Tensor(ctgInd)
 ctgInd = ctgInd.flatten()
 ctgInd = ctgInd-1       # convert to python indexing (subtract 1)
@@ -29,32 +53,39 @@ ctgVal = data.get("X")
 ctgVal = torch.from_numpy(ctgVal)
 ctgVal = ctgVal.flatten()
 nPixels = int(s.shape[1]/2)
-#%%
+# Extract Matlab trained filters
+fOri = data.get("f")
+fOri = torch.from_numpy(fOri)
+fOri = fOri.transpose(0,1)
+# Extract original noise parameters
+filterSigmaOri = data.get("var0")
+maxRespOri = data.get("rMax")
 
+# <codecell>
 ##############
-#### Set parameters of the model to train
+#### SET TRAINING PARAMETERS
 ##############
-nFilt = 2 # Number of filters to use
-filterSigma = 0.007 # Variance of filter responses 
-nEpochs = 30
-
+nFilt = 4 # Number of filters to use
+filterSigma = filterSigmaOri / maxRespOri**2 # Variance of filter responses
+nEpochs = 50
+learningRateBase = 0.004
 # Choose loss function
 lossFun = nn.CrossEntropyLoss()
 
+# <codecell>
 ##############
-#### Analyze effect of batch size
+#### FIT AMA WITH DIFFERENT BATCH SIZES
 ##############
 nStim = s.shape[0]
 batchFractions = np.array([1/50, 1/20, 1/10, 1/5, 1])
 nBatchSizes = batchFractions.size
 batchSizeVec = (nStim*batchFractions).astype(int)
-learningRateBase = 0.005
 
 filterDict = {"batchSize": [], "filter": [], "loss": [], 'time': [],
         'estimates': [], 'estimateStats': []}
 
 for bs in range(nBatchSizes):
-    learningRate = learningRateBase * 10 * batchFractions[bs]
+    learningRate = learningRateBase * np.sqrt(10 * batchFractions[bs])
     batchSize = int(batchSizeVec[bs])
     # Initialize model with random filters
     amaPy = AMA(sAll=s, ctgInd=ctgInd, nFilt=nFilt, filterSigma=filterSigma,
@@ -81,6 +112,8 @@ for bs in range(nBatchSizes):
     filterDict["estimateStats"].append(
             get_estimate_statistics(filterDict["estimates"][bs], ctgInd))
 
+# <codecell>
+# DEFINE A FUNCTION TO VISUALIZE BINOCULAR FILTERS
 def view_filters_bino(f, x=[], title=''):
     plt.title(title)
     nPixels = int(max(f.shape)/2)
@@ -90,23 +123,31 @@ def view_filters_bino(f, x=[], title=''):
     plt.plot(x, f[nPixels:], label='R', color='blue')
     plt.ylim(-0.3, 0.3)
 
+# <codecell>
+# Plot the first 2 filters for each batch size
 x = np.linspace(start=-30, stop=30, num=nPixels) # x axis in arc min
 for bs in range(nBatchSizes):
     plt.subplot(2, nBatchSizes, bs+1)
+    # Plot filter 1
     f1 = filterDict["filter"][bs][0,:]
     view_filters_bino(f=f1, x=x, title='size: %i'  %batchSizeVec[bs])
     plt.subplot(2, nBatchSizes, bs+1+nBatchSizes)
+    # Plot filter 2
     f2 = filterDict["filter"][bs][1,:]
     view_filters_bino(f=f2, x=x, title=''  %batchSizeVec[bs])
 plt.show()
 
+# <codecell>
+# Plot the learning curve for each batch size
+minLoss = 2.55 # Lower limit of y axis
+maxTime = 10   # Upper limit of X axis in the time plot
 for bs in range(nBatchSizes):
     plt.subplot(2, nBatchSizes, bs+1)
     loss = filterDict["loss"][bs]
     time = filterDict["time"][bs]
     plt.plot(time, loss)
-    plt.ylim(2.84, 2.98)
-    plt.xlim(0, 3)
+    plt.ylim(minLoss, 2.98)
+    plt.xlim(0, maxTime)
     plt.ylabel('Cross entropy loss')
     plt.xlabel('Time (s)')
     plt.title('size: %i'  %batchSizeVec[bs])
@@ -117,7 +158,7 @@ for bs in range(nBatchSizes):
     loss = filterDict["loss"][bs]
     epoch = np.arange(loss.size)
     plt.plot(epoch, loss)
-    plt.ylim(2.84, 2.98)
+    plt.ylim(minLoss, 2.98)
     plt.ylabel('Cross entropy loss')
     plt.xlabel('Epoch')
     if bs>0:
