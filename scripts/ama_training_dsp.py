@@ -27,7 +27,7 @@ from ama_library import *
 #### UNCOMMENT THIS CELL FOR GOOGLE COLAB EXECUTION
 #!pip install geotorch
 #import geotorch
-#pip install git+https://github.com/dherrera1911/accuracy_maximization_analysis.git
+#!pip install git+https://github.com/dherrera1911/accuracy_maximization_analysis.git
 #from ama_library import *
 #!wget -qO ./data/ https://github.com/burgelab/AMA/blob/master/AMAdataDisparity.mat
 
