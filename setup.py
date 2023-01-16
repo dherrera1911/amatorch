@@ -9,7 +9,7 @@ setup(
     # Needed to actually package something
     packages=['ama_library'],
     # Needed for dependencies
-    install_requires=['numpy', 'torch', 'matplotlib', 'time'],
+    install_requires=['numpy', 'torch', 'matplotlib'],
     # *strongly* suggested for sharing
     version='0.1',
     # The license can be anything you like
