@@ -2,14 +2,16 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-import geotorch
 
 # Define model class
 class AMA(nn.Module):
     def __init__(self, sAll, ctgInd, nFilt=2, filterSigma=0.02, ctgVal=None, fInit=None):
-    """ AMA model object.
-    sAll: shape batch x features
-    fInit: shape nFilt x features """
+        """ AMA model object.
+        sAll: input stimuli. shape batch x features
+        ctgInd: category index of each stimulus
+        nFilt: number of filters to train (optional if fInit not None)
+        filterSigma: variance of filter response noise
+        fInit: user defined filters (optional). shape nFilt x features """
         super().__init__()
         # If no initial filters, initialize filters and set length to 1
         if fInit == None:
