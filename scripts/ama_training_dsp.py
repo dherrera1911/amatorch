@@ -45,7 +45,7 @@ s = s.transpose(0,1)
 s = s.float()
 # Extract the vector indicating category of each stimulus row
 ctgInd = data.get("ctgInd")
-ctgInd = torch.Tensor(ctgInd)
+ctgInd = torch.tensor(ctgInd)
 ctgInd = ctgInd.flatten()
 ctgInd = ctgInd-1       # convert to python indexing (subtract 1)
 ctgInd = ctgInd.type(torch.LongTensor)  # convert to torch integer
@@ -59,15 +59,15 @@ fOri = data.get("f")
 fOri = torch.from_numpy(fOri)
 fOri = fOri.transpose(0,1)
 # Extract original noise parameters
-filterSigmaOri = data.get("var0")
-maxRespOri = data.get("rMax")
+filterSigmaOri = data.get("var0").flatten()
+maxRespOri = data.get("rMax").flatten()
 
 # <codecell>
 ##############
 #### SET TRAINING PARAMETERS
 ##############
-nFilt = 4 # Number of filters to use
-filterSigma = filterSigmaOri / maxRespOri**2 # Variance of filter responses
+nFilt = 2 # Number of filters to use
+filterSigma = float(filterSigmaOri / maxRespOri**2) # Variance of filter responses
 nEpochs = 50
 learningRateBase = 0.004
 # Choose loss function
@@ -140,8 +140,8 @@ plt.show()
 
 # <codecell>
 # Plot the learning curve for each batch size
-minLoss = 2.55 # Lower limit of y axis
-maxTime = 10   # Upper limit of X axis in the time plot
+minLoss = 2.6 # Lower limit of y axis
+maxTime = 5   # Upper limit of X axis in the time plot
 for bs in range(nBatchSizes):
     plt.subplot(2, nBatchSizes, bs+1)
     loss = filterDict["loss"][bs]
