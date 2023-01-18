@@ -66,11 +66,10 @@ maxRespOri = data.get("rMax").flatten()
 ##############
 #### SET TRAINING PARAMETERS
 ##############
-nFilt = 2 # Number of filters to use
-filterSigma = float(filterSigmaOri / maxRespOri**2) # Variance of filter responses
-nEpochs = 50
-learningRateBase = 0.004
-# Choose loss function
+nFilt = 2   # Number of filters to use
+filterSigma = float(filterSigmaOri / maxRespOri**2)     # Variance of filter responses
+nEpochsBase = 200
+lrGamma = 0.2   # multiplication factor for lr decay
 lossFun = nn.CrossEntropyLoss()
 
 # <codecell>
@@ -86,7 +85,9 @@ filterDict = {"batchSize": [], "filter": [], "loss": [], 'time': [],
         'estimates': [], 'estimateStats': []}
 
 for bs in range(nBatchSizes):
-    learningRate = learningRateBase * np.sqrt(10 * batchFractions[bs])
+    # Adjust learning parameters to the batch size
+    nEpochs = int(nEpochsBase*np.sqrt(batchFractions[bs]))
+    lrStepSize = int(nEpochs/3)
     batchSize = int(batchSizeVec[bs])
     # Initialize model with random filters
     amaPy = AMA(sAll=s, ctgInd=ctgInd, nFilt=nFilt, filterSigma=filterSigma,
@@ -100,10 +101,14 @@ for bs in range(nBatchSizes):
             shuffle=True)
     # Set up optimizer
     opt = torch.optim.Adam(amaPy.parameters(), lr=learningRate)  # Adam
+    # Make learning rate scheduler
+    scheduler = optim.lr_scheduler.StepLR(opt, step_size=lrStepSize,
+            gamma=lrGamma)
     #opt = torch.optim.SGD(amaPy.parameters(), lr=0.03)  # SGD
     # fit model
     loss, elapsedTimes = fit(nEpochs=nEpochs, model=amaPy,
-            trainDataLoader=trainDataLoader, lossFun=lossFun, opt=opt)
+            trainDataLoader=trainDataLoader, lossFun=lossFun, opt=opt,
+            lrGamma=lrGamma)
     # Store ama information into dictionary
     filterDict["batchSize"].append(batchSize)
     filterDict["filter"].append(amaPy.f.detach())

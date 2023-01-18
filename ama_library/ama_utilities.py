@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from torch import optim
 import matplotlib.pyplot as plt
 import time
 
@@ -38,7 +39,7 @@ def get_estimate_statistics(estimates, ctgInd, quantiles=[0.05, 0.95]):
             'lowCI': lowCI, 'highCI': highCI}
 
 # Define loop function to train the model
-def fit(nEpochs, model, trainDataLoader, lossFun, opt):
+def fit(nEpochs, model, trainDataLoader, lossFun, opt, scheduler=None):
     trainingLoss = np.zeros(nEpochs+1)
     elapsedTime = np.zeros(nEpochs+1)
     # Get the loss of the full dataset stored in the data loader
@@ -46,6 +47,7 @@ def fit(nEpochs, model, trainDataLoader, lossFun, opt):
             trainDataLoader.dataset.tensors[1]).detach()
     print('Initial loss: ', trainingLoss[0])
     opt.zero_grad()
+    # Measure time and start loop
     start = time.time()
     for epoch in range(nEpochs):
         for sb, ctgb in trainDataLoader:
@@ -64,6 +66,12 @@ def fit(nEpochs, model, trainDataLoader, lossFun, opt):
                 (epoch+1, trainingLoss[epoch+1], trainingDiff))
         end = time.time()
         elapsedTime[epoch+1] = end - start
+        # Apply scheduler step
+        if not scheduler == None:
+            if "ReduceLROnPlateau" in str(type(scheduler)):
+                scheduler.step(trainingLoss[epoch+1])    # adapt learning rate
+            else:
+                scheduler.step()
     # Do the final response statistics update
     model.update_response_statistics()
     return trainingLoss, elapsedTime
