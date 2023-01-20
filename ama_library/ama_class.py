@@ -94,3 +94,13 @@ class AMA(nn.Module):
             estimates = torch.einsum('nj,j->n', posteriors, self.ctgVal)
         return estimates
 
+#    def add_filters(self, nFiltNew=2):
+#        """ Add new, random filters to the filters already contained in the model.
+#        nFiltNew: number of new fiters to add"""
+#        # If no initial filters, initialize filters and set length to 1
+#        fNew = F.normalize(torch.randn(nFiltNew, self.nDim), p=2, dim=1)
+#        fOld = self.f.detach()
+#        self.f = nn.Parameter(torch.cat((fOld, fNew)) # Model parameters
+#        # Get the dimensions of different relevant vectors
+
+

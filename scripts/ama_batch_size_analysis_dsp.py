@@ -68,9 +68,10 @@ maxRespOri = data.get("rMax").flatten()
 ##############
 nFilt = 2   # Number of filters to use
 filterSigma = float(filterSigmaOri / maxRespOri**2)     # Variance of filter responses
-nEpochsBase = 300
+nEpochsBase = 150
 lrGamma = 0.3   # multiplication factor for lr decay
 lossFun = nn.CrossEntropyLoss()
+learningRate = 0.01
 
 # <codecell>
 ##############
@@ -108,7 +109,7 @@ for bs in range(nBatchSizes):
     # fit model
     loss, elapsedTimes = fit(nEpochs=nEpochs, model=amaPy,
             trainDataLoader=trainDataLoader, lossFun=lossFun, opt=opt,
-            lrGamma=lrGamma)
+            scheduler=scheduler)
     # Store ama information into dictionary
     filterDict["batchSize"].append(batchSize)
     filterDict["filter"].append(amaPy.f.detach())
@@ -141,7 +142,7 @@ plt.show()
 
 # <codecell>
 # Plot the learning curve for each batch size
-minLoss = 2.85 # Lower limit of y axis
+minLoss = 2.75 # Lower limit of y axis
 maxTime = 5   # Upper limit of X axis in the time plot
 for bs in range(nBatchSizes):
     plt.subplot(2, nBatchSizes, bs+1)
@@ -204,6 +205,15 @@ for n in range(nPairs):
             trainDataLoader=trainDataLoader, lossFun=lossFun, opt=opt,
             lrGamma=lrGamma)
     oldFilt = amaPy.f[0:(n+1)2.detach()
+
+
+### test adding filters
+fNew = F.normalize(torch.randn(nFiltNew, amaPy.nDim), p=2, dim=1)
+fOld = amaPy.f.detach()
+fAll = torch.cat((fNew, fOld))
+
+
+
 
 
 
