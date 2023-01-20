@@ -68,8 +68,8 @@ maxRespOri = data.get("rMax").flatten()
 ##############
 nFilt = 2   # Number of filters to use
 filterSigma = float(filterSigmaOri / maxRespOri**2)     # Variance of filter responses
-nEpochsBase = 200
-lrGamma = 0.2   # multiplication factor for lr decay
+nEpochsBase = 300
+lrGamma = 0.3   # multiplication factor for lr decay
 lossFun = nn.CrossEntropyLoss()
 
 # <codecell>
@@ -133,26 +133,22 @@ def view_filters_bino(f, x=[], title=''):
 # Plot the first 2 filters for each batch size
 x = np.linspace(start=-30, stop=30, num=nPixels) # x axis in arc min
 for bs in range(nBatchSizes):
-    plt.subplot(2, nBatchSizes, bs+1)
-    # Plot filter 1
-    f1 = filterDict["filter"][bs][0,:]
-    view_filters_bino(f=f1, x=x, title='size: %i'  %batchSizeVec[bs])
-    plt.subplot(2, nBatchSizes, bs+1+nBatchSizes)
-    # Plot filter 2
-    f2 = filterDict["filter"][bs][1,:]
-    view_filters_bino(f=f2, x=x, title=''  %batchSizeVec[bs])
+    for nf in range(nFilt):
+        plt.subplot(nFilt, nBatchSizes, bs+1+nBatchSizes*nf)
+        fPlot = filterDict["filter"][bs][nf,:]
+        view_filters_bino(f=fPlot, x=x, title='size: %i'  %batchSizeVec[bs])
 plt.show()
 
 # <codecell>
 # Plot the learning curve for each batch size
-minLoss = 2.6 # Lower limit of y axis
+minLoss = 2.85 # Lower limit of y axis
 maxTime = 5   # Upper limit of X axis in the time plot
 for bs in range(nBatchSizes):
     plt.subplot(2, nBatchSizes, bs+1)
     loss = filterDict["loss"][bs]
     time = filterDict["time"][bs]
-    plt.plot(time, loss)
-    plt.ylim(minLoss, 2.98)
+    plt.plot(time, np.log(loss))
+    plt.ylim(np.log(minLoss), np.log(2.98))
     plt.xlim(0, maxTime)
     plt.ylabel('Cross entropy loss')
     plt.xlabel('Time (s)')
@@ -171,4 +167,43 @@ for bs in range(nBatchSizes):
         plt.yticks([])
         plt.ylabel('')
 plt.show()
+
+
+# <codecell>
+##############
+#### FIT AMA IN PAIRS OF FILTERS
+##############
+nStim = s.shape[0]
+batchSize = 256
+nEpochs = 21
+lrStepSize = int(nEpochs/3)
+
+nPairs = 4
+for n in range(nPairs):
+    # Adjust learning parameters to the batch size
+    # Initialize model with random filters
+    amaPy = AMA(sAll=s, ctgInd=ctgInd, nFilt=2*(n+1), filterSigma=filterSigma,
+            ctgVal=ctgVal)
+    # Add norm 1 constraint (set parameters f to lay on a sphere)
+    geotorch.sphere(amaPy, "f")
+    if not n==0:
+        amaPy.f[(n-1)*2:((n-1)*2+2),]
+    # Put data into Torch data loader tools
+    trainDataset = TensorDataset(s, ctgInd)
+    # Batch loading and other utilities 
+    trainDataLoader = DataLoader(trainDataset, batch_size=batchSize,
+            shuffle=True)
+    # Set up optimizer
+    opt = torch.optim.Adam(amaPy.parameters(), lr=learningRate)  # Adam
+    # Make learning rate scheduler
+    scheduler = optim.lr_scheduler.StepLR(opt, step_size=lrStepSize,
+            gamma=lrGamma)
+    #opt = torch.optim.SGD(amaPy.parameters(), lr=0.03)  # SGD
+    # fit model
+    loss, elapsedTimes = fit(nEpochs=nEpochs, model=amaPy,
+            trainDataLoader=trainDataLoader, lossFun=lossFun, opt=opt,
+            lrGamma=lrGamma)
+    oldFilt = amaPy.f[0:(n+1)2.detach()
+
+
 
