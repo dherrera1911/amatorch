@@ -2,7 +2,7 @@
 from IPython.nbformat import v3, v4
 
 inputFile = "./scripts/ama_batch_size_analysis_dsp.py"
-outputFile = "./notebooks/ama_batch_size_analysis_dsp.py"
+outputFile = "./notebooks/ama_batch_size_analysis_dsp.ipynb"
 
 fpin = open(inputFile)
 text = fpin.read()
