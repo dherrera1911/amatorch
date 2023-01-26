@@ -20,7 +20,6 @@ from torch.utils.data import TensorDataset, DataLoader
 
 # <codecell>
 ##### COMMENT THIS CELL WHEN USING GOOGLE COLAB
-import geotorch
 from ama_library import *
 
 # <codecell>
@@ -93,8 +92,6 @@ for bs in range(nBatchSizes):
     # Initialize model with random filters
     amaPy = AMA(sAll=s, ctgInd=ctgInd, nFilt=nFilt, filterSigma=filterSigma,
             ctgVal=ctgVal)
-    # Add norm 1 constraint (set parameters f to lay on a sphere)
-    geotorch.sphere(amaPy, "f")
     # Put data into Torch data loader tools
     trainDataset = TensorDataset(s, ctgInd)
     # Batch loading and other utilities 
@@ -168,52 +165,5 @@ for bs in range(nBatchSizes):
         plt.yticks([])
         plt.ylabel('')
 plt.show()
-
-
-# <codecell>
-##############
-#### FIT AMA IN PAIRS OF FILTERS
-##############
-nStim = s.shape[0]
-batchSize = 256
-nEpochs = 21
-lrStepSize = int(nEpochs/3)
-
-nPairs = 4
-for n in range(nPairs):
-    # Adjust learning parameters to the batch size
-    # Initialize model with random filters
-    amaPy = AMA(sAll=s, ctgInd=ctgInd, nFilt=2*(n+1), filterSigma=filterSigma,
-            ctgVal=ctgVal)
-    # Add norm 1 constraint (set parameters f to lay on a sphere)
-    geotorch.sphere(amaPy, "f")
-    if not n==0:
-        amaPy.f[(n-1)*2:((n-1)*2+2),]
-    # Put data into Torch data loader tools
-    trainDataset = TensorDataset(s, ctgInd)
-    # Batch loading and other utilities 
-    trainDataLoader = DataLoader(trainDataset, batch_size=batchSize,
-            shuffle=True)
-    # Set up optimizer
-    opt = torch.optim.Adam(amaPy.parameters(), lr=learningRate)  # Adam
-    # Make learning rate scheduler
-    scheduler = optim.lr_scheduler.StepLR(opt, step_size=lrStepSize,
-            gamma=lrGamma)
-    #opt = torch.optim.SGD(amaPy.parameters(), lr=0.03)  # SGD
-    # fit model
-    loss, elapsedTimes = fit(nEpochs=nEpochs, model=amaPy,
-            trainDataLoader=trainDataLoader, lossFun=lossFun, opt=opt,
-            lrGamma=lrGamma)
-    oldFilt = amaPy.f[0:(n+1)2.detach()
-
-
-### test adding filters
-fNew = F.normalize(torch.randn(nFiltNew, amaPy.nDim), p=2, dim=1)
-fOld = amaPy.f.detach()
-fAll = torch.cat((fNew, fOld))
-
-
-
-
 
 

@@ -2,6 +2,7 @@
  "cells": [
   {
    "cell_type": "markdown",
+   "id": "b4c981b4",
    "metadata": {},
    "source": [
     "#Disparity estimation and effect of batch size\n",
@@ -14,6 +15,7 @@
   {
    "cell_type": "code",
    "execution_count": null,
+   "id": "4228874d",
    "metadata": {
     "collapsed": false
    },
@@ -34,36 +36,38 @@
   {
    "cell_type": "code",
    "execution_count": null,
+   "id": "0950daed",
    "metadata": {
     "collapsed": false
    },
    "outputs": [],
    "source": [
     "##### COMMENT THIS CELL WHEN USING GOOGLE COLAB\n",
-    "import geotorch\n",
-    "from ama_library import *"
+    "#from ama_library import *"
    ]
   },
   {
    "cell_type": "code",
    "execution_count": null,
+   "id": "f4a27ce0",
    "metadata": {
     "collapsed": false
    },
    "outputs": [],
    "source": [
     "#### UNCOMMENT THIS CELL FOR GOOGLE COLAB EXECUTION\n",
-    "#!pip install geotorch\n",
-    "#import geotorch\n",
-    "#!pip install git+https://github.com/dherrera1911/accuracy_maximization_analysis.git\n",
-    "#from ama_library import *\n",
-    "#!mkdir data\n",
-    "#!wget -O ./data/AMAdataDisparity.mat https://github.com/burgelab/AMA/blob/master/AMAdataDisparity.mat?raw=true"
+    "!pip install geotorch\n",
+    "import geotorch\n",
+    "!pip install git+https://github.com/dherrera1911/accuracy_maximization_analysis.git\n",
+    "from ama_library import *\n",
+    "!mkdir data\n",
+    "!wget -O ./data/AMAdataDisparity.mat https://github.com/burgelab/AMA/blob/master/AMAdataDisparity.mat?raw=true"
    ]
   },
   {
    "cell_type": "code",
    "execution_count": null,
+   "id": "655fc9e6",
    "metadata": {
     "collapsed": false
    },
@@ -102,6 +106,7 @@
   {
    "cell_type": "code",
    "execution_count": null,
+   "id": "d2d134c9",
    "metadata": {
     "collapsed": false
    },
@@ -112,14 +117,16 @@
     "##############\n",
     "nFilt = 2   # Number of filters to use\n",
     "filterSigma = float(filterSigmaOri / maxRespOri**2)     # Variance of filter responses\n",
-    "nEpochsBase = 300\n",
+    "nEpochsBase = 150\n",
     "lrGamma = 0.3   # multiplication factor for lr decay\n",
-    "lossFun = nn.CrossEntropyLoss()"
+    "lossFun = nn.CrossEntropyLoss()\n",
+    "learningRate = 0.01"
    ]
   },
   {
    "cell_type": "code",
    "execution_count": null,
+   "id": "37bb5441",
    "metadata": {
     "collapsed": false
    },
@@ -144,8 +151,6 @@
     "    # Initialize model with random filters\n",
     "    amaPy = AMA(sAll=s, ctgInd=ctgInd, nFilt=nFilt, filterSigma=filterSigma,\n",
     "            ctgVal=ctgVal)\n",
-    "    # Add norm 1 constraint (set parameters f to lay on a sphere)\n",
-    "    geotorch.sphere(amaPy, \"f\")\n",
     "    # Put data into Torch data loader tools\n",
     "    trainDataset = TensorDataset(s, ctgInd)\n",
     "    # Batch loading and other utilities \n",
@@ -160,7 +165,7 @@
     "    # fit model\n",
     "    loss, elapsedTimes = fit(nEpochs=nEpochs, model=amaPy,\n",
     "            trainDataLoader=trainDataLoader, lossFun=lossFun, opt=opt,\n",
-    "            lrGamma=lrGamma)\n",
+    "            scheduler=scheduler)\n",
     "    # Store ama information into dictionary\n",
     "    filterDict[\"batchSize\"].append(batchSize)\n",
     "    filterDict[\"filter\"].append(amaPy.f.detach())\n",
@@ -174,6 +179,7 @@
   {
    "cell_type": "code",
    "execution_count": null,
+   "id": "1f26564b",
    "metadata": {
     "collapsed": false
    },
@@ -193,6 +199,7 @@
   {
    "cell_type": "code",
    "execution_count": null,
+   "id": "10bc0370",
    "metadata": {
     "collapsed": false
    },
@@ -211,13 +218,14 @@
   {
    "cell_type": "code",
    "execution_count": null,
+   "id": "480441e2",
    "metadata": {
     "collapsed": false
    },
    "outputs": [],
    "source": [
     "# Plot the learning curve for each batch size\n",
-    "minLoss = 2.85 # Lower limit of y axis\n",
+    "minLoss = 2.75 # Lower limit of y axis\n",
     "maxTime = 5   # Upper limit of X axis in the time plot\n",
     "for bs in range(nBatchSizes):\n",
     "    plt.subplot(2, nBatchSizes, bs+1)\n",
@@ -244,53 +252,9 @@
     "        plt.ylabel('')\n",
     "plt.show()"
    ]
-  },
-  {
-   "cell_type": "code",
-   "execution_count": null,
-   "metadata": {
-    "collapsed": false
-   },
-   "outputs": [],
-   "source": [
-    "##############\n",
-    "#### FIT AMA IN PAIRS OF FILTERS\n",
-    "##############\n",
-    "nStim = s.shape[0]\n",
-    "batchSize = 256\n",
-    "nEpochs = 21\n",
-    "lrStepSize = int(nEpochs/3)\n",
-    "\n",
-    "nPairs = 4\n",
-    "for n in range(nPairs):\n",
-    "    # Adjust learning parameters to the batch size\n",
-    "    # Initialize model with random filters\n",
-    "    amaPy = AMA(sAll=s, ctgInd=ctgInd, nFilt=2*(n+1), filterSigma=filterSigma,\n",
-    "            ctgVal=ctgVal)\n",
-    "    # Add norm 1 constraint (set parameters f to lay on a sphere)\n",
-    "    geotorch.sphere(amaPy, \"f\")\n",
-    "    if not n==0:\n",
-    "        amaPy.f[(n-1)*2:((n-1)*2+2),]\n",
-    "    # Put data into Torch data loader tools\n",
-    "    trainDataset = TensorDataset(s, ctgInd)\n",
-    "    # Batch loading and other utilities \n",
-    "    trainDataLoader = DataLoader(trainDataset, batch_size=batchSize,\n",
-    "            shuffle=True)\n",
-    "    # Set up optimizer\n",
-    "    opt = torch.optim.Adam(amaPy.parameters(), lr=learningRate)  # Adam\n",
-    "    # Make learning rate scheduler\n",
-    "    scheduler = optim.lr_scheduler.StepLR(opt, step_size=lrStepSize,\n",
-    "            gamma=lrGamma)\n",
-    "    #opt = torch.optim.SGD(amaPy.parameters(), lr=0.03)  # SGD\n",
-    "    # fit model\n",
-    "    loss, elapsedTimes = fit(nEpochs=nEpochs, model=amaPy,\n",
-    "            trainDataLoader=trainDataLoader, lossFun=lossFun, opt=opt,\n",
-    "            lrGamma=lrGamma)\n",
-    "    oldFilt = amaPy.f[0:(n+1)2.detach()"
-   ]
   }
  ],
  "metadata": {},
  "nbformat": 4,
- "nbformat_minor": 4
+ "nbformat_minor": 5
 }
