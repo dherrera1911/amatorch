@@ -2,10 +2,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
+import geotorch
+import torch.nn.utils.parametrize as parametrize
 
 # Define model class
 class AMA(nn.Module):
-    def __init__(self, sAll, ctgInd, nFilt=2, filterSigma=0.02, ctgVal=None, fInit=None):
+    def __init__(self, sAll, ctgInd, nFilt=2, filterSigma=0.02, ctgVal=None):
         """ AMA model object.
         sAll: input stimuli. shape batch x features
         ctgInd: category index of each stimulus
@@ -14,10 +16,10 @@ class AMA(nn.Module):
         fInit: user defined filters (optional). shape nFilt x features """
         super().__init__()
         # If no initial filters, initialize filters and set length to 1
-        if fInit == None:
-            fInit = torch.randn(nFilt, sAll.shape[1])
-            fInit = F.normalize(fInit, p=2, dim=1)
-        self.f = nn.Parameter(fInit) # Model parameters
+        fInit = torch.randn(nFilt, sAll.shape[1])
+        fInit = F.normalize(fInit, p=2, dim=1)
+        self.f = nn.Parameter(fInit)    # Model parameters
+        geotorch.sphere(self, "f")
         # Get the dimensions of different relevant vectors
         self.nFilt = self.f.shape[0]
         self.nDim = self.f.shape[1]
@@ -94,13 +96,22 @@ class AMA(nn.Module):
             estimates = torch.einsum('nj,j->n', posteriors, self.ctgVal)
         return estimates
 
-#    def add_filters(self, nFiltNew=2):
-#        """ Add new, random filters to the filters already contained in the model.
-#        nFiltNew: number of new fiters to add"""
-#        # If no initial filters, initialize filters and set length to 1
-#        fNew = F.normalize(torch.randn(nFiltNew, self.nDim), p=2, dim=1)
-#        fOld = self.f.detach()
-#        self.f = nn.Parameter(torch.cat((fOld, fNew)) # Model parameters
-#        # Get the dimensions of different relevant vectors
+    def assign_filter_values(self, fNew):
+        self.f = nn.Parameter(fNew) # Model parameters
+        self.nFilt = self.f.shape[0]
+        self.noiseCov = torch.eye(self.nFilt).repeat(self.nClasses,1,1) \
+                * self.filterSigma
+        self.update_response_statistics()
 
+    def add_new_filters(self, nFiltNew=2):
+        """ Add new, random filters to the filters already contained in the model.
+        nFiltNew: number of new fiters to add"""
+        # If no initial filters, initialize filters and set length to 1
+        fNew = F.normalize(torch.randn(nFiltNew, self.nDim), p=2, dim=1)
+        fOld = self.f.detach().clone()
+        fAll = torch.cat((fOld, fNew))  # Model parameters
+        parametrize.remove_parametrizations(self, "f", leave_parametrized=True)
+        self.assign_filter_values(fAll.clone())
+        geotorch.sphere(self, "f")
+        self.f = fAll
 

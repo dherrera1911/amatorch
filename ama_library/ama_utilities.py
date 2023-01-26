@@ -22,6 +22,17 @@ def view_filters_bino_video(fIn, frames=15, pixels=30):
         ax.axes.xaxis.set_visible(False)
         ax.axes.yaxis.set_visible(False)
 
+# DEFINE A FUNCTION TO VISUALIZE BINOCULAR FILTERS
+def view_filters_bino(f, x=[], title=''):
+    plt.title(title)
+    nPixels = int(max(f.shape)/2)
+    if len(x) == 0:
+        x = np.arange(nPixels)
+    plt.plot(x, f[:nPixels], label='L', color='red')
+    plt.plot(x, f[nPixels:], label='R', color='blue')
+    plt.ylim(-0.3, 0.3)
+
+
 # Function that turns posteriors into estimate averages, SDs and CIs
 def get_estimate_statistics(estimates, ctgInd, quantiles=[0.05, 0.95]):
     # Compute means and stds for each true level of the latent variable
@@ -65,6 +76,7 @@ def fit(nEpochs, model, trainDataLoader, lossFun, opt, scheduler=None):
             loss = lossFun(pred, ctgb)  # Compute loss
             loss.backward()             # Compute gradient
             opt.step()                  # Take one step
+            #model.f = model.f / 
             opt.zero_grad()             # Restart gradient
         # Print model loss
         trainingLoss[epoch+1] = lossFun(model.get_posteriors(trainDataLoader.dataset.tensors[0]),
