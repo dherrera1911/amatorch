@@ -1,6 +1,6 @@
 # <markdowncell>
 
-# #Disparity estimation and effect of batch size
+# #Disparity estimation and filter training in pairs
 # 
 # Train AMA on the task of disparity estimation. Train two
 # pairs of filters, one after the other (first the model
@@ -68,7 +68,7 @@ maxRespOri = data.get("rMax").flatten()
 ##############
 nFilt = 2   # Number of filters to use
 filterSigma = float(filterSigmaOri / maxRespOri**2)  # Variance of filter responses
-nEpochs = 30
+nEpochs = 20
 lrGamma = 0.3   # multiplication factor for lr decay
 lossFun = nn.CrossEntropyLoss()
 learningRate = 0.01
@@ -95,10 +95,14 @@ opt = torch.optim.Adam(amaPy.parameters(), lr=learningRate)  # Adam
 scheduler = optim.lr_scheduler.StepLR(opt, step_size=lrStepSize,
         gamma=lrGamma)
 #opt = torch.optim.SGD(amaPy.parameters(), lr=0.03)  # SGD
+
+# <codecell>
 # fit model
 loss, elapsedTimes = fit(nEpochs=nEpochs, model=amaPy,
         trainDataLoader=trainDataLoader, lossFun=lossFun, opt=opt,
         scheduler=scheduler)
+plt.plot(elapsedTimes, loss)
+plt.show()
 
 # <codecell>
 ## PLOT THE LEARNED FILTERS
@@ -132,12 +136,16 @@ plt.show()
 # <codecell>
 ## TRAIN THE NEW FILTERS TOGETHER WITH ORIGINAL
 learningRate2 = learningRate * 1/3
-nEpochs2 = 30
+nEpochs2 = 20
 # Re-initializing the optimizer after adding filters is required
 opt = torch.optim.Adam(amaPy.parameters(), lr=learningRate2)  # Adam
+scheduler = optim.lr_scheduler.StepLR(opt, step_size=lrStepSize,
+        gamma=lrGamma)
 loss, elapsedTimes = fit(nEpochs=nEpochs2, model=amaPy,
         trainDataLoader=trainDataLoader, lossFun=lossFun, opt=opt,
         scheduler=scheduler)
+plt.plot(elapsedTimes, loss)
+plt.show()
 
 # Plot filters after learning
 plt.subplot(2,2,1)
@@ -149,5 +157,4 @@ view_filters_bino(amaPy.f[2,:].detach())
 plt.subplot(2,2,4)
 view_filters_bino(amaPy.f[3,:].detach())
 plt.show()
-
 
