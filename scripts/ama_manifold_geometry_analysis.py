@@ -77,25 +77,22 @@ batchSize = 256
 ##############
 ####  TRAIN THE MODEL
 ##############
-
 # Define model
 amaPy = AMA(sAll=s, nFilt=nFilt, ctgInd=ctgInd, filterSigma=filterSigma,
         ctgVal=ctgVal)
 
 # Extract the initial random response covariances
-randomRespCovs = amaPy.respCovs.detach().numpy()
+respRandomCovs = amaPy.respCovs.detach().numpy()
 fRandom = amaPy.f.detach().clone().numpy()
 
-# Put data into Torch data loader tools
+# Put training data into Torch data loader tools
 trainDataset = TensorDataset(s, ctgInd)
 # Batch loading and other utilities 
-trainDataLoader = DataLoader(trainDataset, batch_size=batchSize,
-        shuffle=True)
+trainDataLoader = DataLoader(trainDataset, batch_size=batchSize, shuffle=True)
 # Set up optimizer
 opt = torch.optim.Adam(amaPy.parameters(), lr=learningRate)  # Adam
 # Make learning rate scheduler
-scheduler = optim.lr_scheduler.StepLR(opt, step_size=lrStepSize,
-        gamma=lrGamma)
+scheduler = optim.lr_scheduler.StepLR(opt, step_size=lrStepSize, gamma=lrGamma)
 
 # <codecell>
 # fit model to data
@@ -103,6 +100,8 @@ loss, elapsedTimes = fit(nEpochs=nEpochs, model=amaPy,
         trainDataLoader=trainDataLoader, lossFun=lossFun, opt=opt,
         scheduler=scheduler)
 plt.plot(elapsedTimes, loss)
+plt.xlabel('Time (s)')
+plt.ylabel('Loss')
 plt.show()
 
 # Extract response covariances for trained filters
@@ -113,13 +112,17 @@ fLearned = amaPy.f.detach().clone().numpy()
 ##############
 #### GET COVARIANCE MATRICES OF PCA FILTER RESPONSES
 ##############
-# Reduce dimansionality of stimulus covs so they are not singular
 pcaDim = nFilt
 stimCovs = amaPy.stimCovs.detach()
 u, a, fPCA = np.linalg.svd(s)
 fPCA = torch.from_numpy(fPCA[0:pcaDim,:])
 pcaCovs = torch.einsum('fd,jdb,gb->jfg', fPCA, stimCovs, fPCA)
 pcaCovs = pcaCovs.numpy()
+
+# <codecell>
+# Put the learned filters into a list for tidier plotting
+fList = [fLearned, fRandom, fPCA]
+namesList = ['Learned filters', 'Random filters', 'PCA filters']
 
 # <codecell>
 ###########
@@ -131,17 +134,29 @@ manifold = pm.manifolds.positive_definite.SymmetricPositiveDefinite(amaPy.nFilt,
 # PSDM
 #manifold = pm.manifolds.psd.PSDFixedRank(amaPy.nFilt, k=2)
 
-# <codecell>
-### Compute distances between classes
-respCovDist = np.zeros(amaPy.nClasses-1)
-respRandomCovDist = np.zeros(amaPy.nClasses-1)
-stimCovDist = np.zeros(amaPy.nClasses-1)
-for c in range(amaPy.nClasses-1):
-    respCovDist[c] = manifold.dist(respCovs[c,:,:], respCovs[c+1,:,:])
-    respRandomCovDist[c] = manifold.dist(randomRespCovs[c,:,:], randomRespCovs[c+1,:,:])
-    stimCovDist[c] = manifold.dist(pcaCovs[c,:,:], pcaCovs[c+1,:,:])
 
-ymaxDist = np.max([respRandomCovDist, respCovDist, stimCovDist])
+# <codecell>
+# Define function to compute angles formed by each matrix with its 2 neighbors
+def compute_average_dist(inputMat, inputMan):
+    distVec = np.zeros(inputMat.shape[0]-2)
+    for c in range(inputMat.shape[0]-2):
+        pointCenter = inputMat[c+1,:,:]
+        pointPrev = inputMat[c,:,:]
+        pointNext = inputMat[c+2,:,:]
+        dist1 = inputMan.dist(pointCenter, pointPrev)
+        dist2 = inputMan.dist(pointCenter, pointNext)
+        distVec[c] = np.mean([dist1, dist2])
+    return distVec
+
+
+# <codecell>
+### Compute average distance between a class and its neighbors
+respCovDist = compute_average_dist(respCovs, manifold)
+respRandomCovDist = compute_average_dist(respRandomCovs, manifold)
+respPCACovDist = compute_average_dist(pcaCovs, manifold)
+# Put distances into list for tidier plotting
+distancesList = [respCovDist, respRandomCovDist, respPCACovDist]
+ymaxDist = np.max(distancesList)
 
 # <codecell>
 # Define function to compute angles formed by each matrix with its 2 neighbors
@@ -171,61 +186,50 @@ for c in range(amaPy.nClasses-2):
     # Ama filter responses
     respCovAng = compute_angles(respCovs, manifold)
     # Random filter responses
-    respRandomCovAng = compute_angles(randomRespCovs, manifold)
+    respRandomCovAng = compute_angles(respRandomCovs, manifold)
     # PCA filter responses
-    stimCovAng = compute_angles(pcaCovs, manifold)
+    respPCACovAng = compute_angles(pcaCovs, manifold)
+# Put angles into list for tidier plotting
+anglesList = [respCovAng, respRandomCovAng, respPCACovAng]
 
 # <codecell>
 ### PLOT FILTERS
+nModels = len(namesList)
 x = np.linspace(start=-30, stop=30, num=nPixels) # x axis in arc min
-plt.subplot(2,3,1)
-view_filters_bino(f=fLearned[0,:], x=x, title='Trained filters')
-plt.subplot(2,3,4)
-view_filters_bino(f=fLearned[1,:], x=x)
-plt.subplot(2,3,2)
-view_filters_bino(f=fRandom[0,:], x=x, title='Random filters')
-plt.yticks([])
-plt.subplot(2,3,5)
-view_filters_bino(f=fRandom[1,:], x=x)
-plt.yticks([])
-plt.subplot(2,3,3)
-view_filters_bino(f=fPCA[0,:], x=x, title='PCA filters')
-plt.yticks([])
-plt.subplot(2,3,6)
-view_filters_bino(f=fPCA[1,:], x=x)
-plt.yticks([])
+for n in range(nModels):
+    fPlot = fList[n]
+    plt.subplot(2,3,n+1)
+    view_filters_bino(f=fPlot[0,:], x=x, title=namesList[n])
+    if (n>0):
+        plt.yticks([])
+    plt.subplot(2,3,n+4)
+    view_filters_bino(f=fPlot[1,:], x=x)
+    if (n>0):
+        plt.yticks([])
+    plt.xlabel('Visual field (arcmin)')
 plt.show()
 
 # <codecell>
 ### PLOT RESULTS 
+disparities = ctgVal[1:-1]
 # Plot distances
-plt.subplot(2,3,1)
-plt.title('Trained filters')
-plt.ylabel('Distance between classes')
-plt.plot(respCovDist)
-plt.ylim([0, ymaxDist*1.1])
-plt.subplot(2,3,2)
-plt.title('Random filters')
-plt.plot(respRandomCovDist)
-plt.ylim([0, ymaxDist*1.1])
-plt.yticks([])
-plt.subplot(2,3,3)
-plt.title('PCA filters')
-plt.plot(stimCovDist)
-plt.ylim([0, ymaxDist*1.1])
-plt.yticks([])
-# Plot angles
-plt.subplot(2,3,4)
-plt.ylabel('Angle between classes')
-plt.plot(respCovAng)
-plt.ylim(0, 90)
-plt.subplot(2,3,5)
-plt.plot(respRandomCovAng)
-plt.ylim(0, 90)
-plt.yticks([])
-plt.subplot(2,3,6)
-plt.plot(stimCovAng)
-plt.ylim(0, 90)
-plt.yticks([])
+for n in range(nModels):
+    plt.subplot(2,3,n+1)
+    plt.title(namesList[n]) 
+    if (n==0):
+        plt.ylabel('Distance between classes')
+    else:
+        plt.yticks([])
+    plt.plot(disparities, distancesList[n])
+    plt.ylim([0, ymaxDist*1.1])
+    plt.subplot(2,3,n+4)
+    if (n==0):
+        plt.ylabel('Angle between classes')
+    else:
+        plt.yticks([])
+    plt.plot(disparities, anglesList[n])
+    plt.ylim(0, 90)
+    plt.xlabel('Disparity (arcmin)')
+
 plt.show()
 
