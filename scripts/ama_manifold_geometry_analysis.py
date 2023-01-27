@@ -117,7 +117,7 @@ stimCovs = amaPy.stimCovs.detach()
 u, a, fPCA = np.linalg.svd(s)
 fPCA = torch.from_numpy(fPCA[0:pcaDim,:])
 pcaCovs = torch.einsum('fd,jdb,gb->jfg', fPCA, stimCovs, fPCA)
-pcaCovs = pcaCovs.numpy()
+pcaCovs = pcaCovs.numpy() + amaPy.noiseCov.numpy()
 
 # <codecell>
 # Put the learned filters into a list for tidier plotting
@@ -128,14 +128,7 @@ namesList = ['Learned filters', 'Random filters', 'PCA filters']
 ###########
 ### MANIFOLD ANALYSIS
 ###########
-# Initialize manifold structures to analyze geometry
-# SPDM
-manifold = pm.manifolds.positive_definite.SymmetricPositiveDefinite(amaPy.nFilt, k=1)
-# PSDM
-#manifold = pm.manifolds.psd.PSDFixedRank(amaPy.nFilt, k=2)
 
-
-# <codecell>
 # Define function to compute angles formed by each matrix with its 2 neighbors
 def compute_average_dist(inputMat, inputMan):
     distVec = np.zeros(inputMat.shape[0]-2)
@@ -148,17 +141,6 @@ def compute_average_dist(inputMat, inputMan):
         distVec[c] = np.mean([dist1, dist2])
     return distVec
 
-
-# <codecell>
-### Compute average distance between a class and its neighbors
-respCovDist = compute_average_dist(respCovs, manifold)
-respRandomCovDist = compute_average_dist(respRandomCovs, manifold)
-respPCACovDist = compute_average_dist(pcaCovs, manifold)
-# Put distances into list for tidier plotting
-distancesList = [respCovDist, respRandomCovDist, respPCACovDist]
-ymaxDist = np.max(distancesList)
-
-# <codecell>
 # Define function to compute angles formed by each matrix with its 2 neighbors
 def compute_angles(inputMat, inputMan):
     angleVec = np.zeros(inputMat.shape[0]-2)
@@ -180,15 +162,33 @@ def compute_angles(inputMat, inputMan):
         angleVec[c] = angle
     return angleVec
 
+
+# <codecell>
+# INITIALIZE MANIFOLD STRUCTURE TO ANALYZE GEOMETRY
+# SPDM
+manifold = pm.manifolds.positive_definite.SymmetricPositiveDefinite(amaPy.nFilt, k=1)
+# PSDM
+#manifold = pm.manifolds.psd.PSDFixedRank(amaPy.nFilt, k=2)
+# Euclidean
+#manifold = pm.manifolds.euclidean.Euclidean((nFilt, nFilt))
+
+# <codecell>
+### Compute average distance between a class and its neighbors
+respCovDist = compute_average_dist(respCovs, manifold)
+respRandomCovDist = compute_average_dist(respRandomCovs, manifold)
+respPCACovDist = compute_average_dist(pcaCovs, manifold)
+# Put distances into list for tidier plotting
+distancesList = [respCovDist, respRandomCovDist, respPCACovDist]
+ymaxDist = np.max(distancesList)
+
 # <codecell>
 ### Compute angles between classes
-for c in range(amaPy.nClasses-2):
-    # Ama filter responses
-    respCovAng = compute_angles(respCovs, manifold)
-    # Random filter responses
-    respRandomCovAng = compute_angles(respRandomCovs, manifold)
-    # PCA filter responses
-    respPCACovAng = compute_angles(pcaCovs, manifold)
+# Ama filter responses
+respCovAng = compute_angles(respCovs, manifold)
+# Random filter responses
+respRandomCovAng = compute_angles(respRandomCovs, manifold)
+# PCA filter responses
+respPCACovAng = compute_angles(pcaCovs, manifold)
 # Put angles into list for tidier plotting
 anglesList = [respCovAng, respRandomCovAng, respPCACovAng]
 
@@ -233,3 +233,38 @@ for n in range(nModels):
 
 plt.show()
 
+
+# <codecell>
+# Check whether the distances depend on
+# the order of the filters, or on their rotations
+#
+## Distances when changing the order of vectors
+#fPCA2 = fPCA[[1,0],:]
+#pcaCovs2 = torch.einsum('fd,jdb,gb->jfg', fPCA2, stimCovs, fPCA2)
+#pcaCovs2 = pcaCovs2.numpy()
+#swappedDist = np.zeros(amaPy.nClasses)
+#for c in range(amaPy.nClasses):
+#    swappedDist[c] = manifold.dist(pcaCovs[c,:,:], pcaCovs2[c,:,:])
+#
+#plt.plot(ctgVal, swappedDist)
+#plt.xlabel('Disparity (arcmin)')
+#plt.ylabel('Distance between swapped filters covariances')
+#plt.show()
+#
+#manifold.log(pcaCovs[0,:,:], pcaCovs2[0,:,:])
+#manifold.log(pcaCovs[0,:,:], pcaCovs[1,:,:])
+#
+## <codecell>
+## Distances when changing the sign of the vectors
+#fPCA3 = -fPCA
+#pcaCovs3 = torch.einsum('fd,jdb,gb->jfg', fPCA3, stimCovs, fPCA3)
+#pcaCovs3 = pcaCovs3.numpy()
+#negativeDist = np.zeros(amaPy.nClasses)
+#for c in range(amaPy.nClasses):
+#    negativeDist[c] = manifold.dist(pcaCovs[c,:,:], pcaCovs3[c,:,:])
+#
+#plt.plot(ctgVal, negativeDist)
+#plt.xlabel('Disparity (arcmin)')
+#plt.ylabel('Distance between negative filters covariances')
+#plt.show()
+#
