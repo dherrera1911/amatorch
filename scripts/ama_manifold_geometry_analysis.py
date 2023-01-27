@@ -84,6 +84,7 @@ amaPy = AMA(sAll=s, nFilt=nFilt, ctgInd=ctgInd, filterSigma=filterSigma,
 
 # Extract the initial random response covariances
 randomRespCovs = amaPy.respCovs.detach().numpy()
+fRandom = amaPy.f.detach().clone().numpy()
 
 # Put data into Torch data loader tools
 trainDataset = TensorDataset(s, ctgInd)
@@ -106,6 +107,7 @@ plt.show()
 
 # Extract response covariances for trained filters
 respCovs = amaPy.respCovs.detach().numpy()
+fLearned = amaPy.f.detach().clone().numpy()
 
 # <codecell>
 ##############
@@ -114,9 +116,9 @@ respCovs = amaPy.respCovs.detach().numpy()
 # Reduce dimansionality of stimulus covs so they are not singular
 pcaDim = nFilt
 stimCovs = amaPy.stimCovs.detach()
-u, a, pcaFilt = np.linalg.svd(s)
-pcaFilt = torch.from_numpy(pcaFilt[0:pcaDim,:])
-pcaCovs = torch.einsum('fd,jdb,gb->jfg', pcaFilt, stimCovs, pcaFilt)
+u, a, fPCA = np.linalg.svd(s)
+fPCA = torch.from_numpy(fPCA[0:pcaDim,:])
+pcaCovs = torch.einsum('fd,jdb,gb->jfg', fPCA, stimCovs, fPCA)
 pcaCovs = pcaCovs.numpy()
 
 # <codecell>
@@ -172,6 +174,27 @@ for c in range(amaPy.nClasses-2):
     respRandomCovAng = compute_angles(randomRespCovs, manifold)
     # PCA filter responses
     stimCovAng = compute_angles(pcaCovs, manifold)
+
+# <codecell>
+### PLOT FILTERS
+x = np.linspace(start=-30, stop=30, num=nPixels) # x axis in arc min
+plt.subplot(2,3,1)
+view_filters_bino(f=fLearned[0,:], x=x, title='Trained filters')
+plt.subplot(2,3,4)
+view_filters_bino(f=fLearned[1,:], x=x)
+plt.subplot(2,3,2)
+view_filters_bino(f=fRandom[0,:], x=x, title='Random filters')
+plt.yticks([])
+plt.subplot(2,3,5)
+view_filters_bino(f=fRandom[1,:], x=x)
+plt.yticks([])
+plt.subplot(2,3,3)
+view_filters_bino(f=fPCA[0,:], x=x, title='PCA filters')
+plt.yticks([])
+plt.subplot(2,3,6)
+view_filters_bino(f=fPCA[1,:], x=x)
+plt.yticks([])
+plt.show()
 
 # <codecell>
 ### PLOT RESULTS 

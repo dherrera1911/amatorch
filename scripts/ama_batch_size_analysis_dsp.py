@@ -117,17 +117,6 @@ for bs in range(nBatchSizes):
             get_estimate_statistics(filterDict["estimates"][bs], ctgInd))
 
 # <codecell>
-# DEFINE A FUNCTION TO VISUALIZE BINOCULAR FILTERS
-def view_filters_bino(f, x=[], title=''):
-    plt.title(title)
-    nPixels = int(max(f.shape)/2)
-    if len(x) == 0:
-        x = np.arange(nPixels)
-    plt.plot(x, f[:nPixels], label='L', color='red')
-    plt.plot(x, f[nPixels:], label='R', color='blue')
-    plt.ylim(-0.3, 0.3)
-
-# <codecell>
 # Plot the first 2 filters for each batch size
 x = np.linspace(start=-30, stop=30, num=nPixels) # x axis in arc min
 for bs in range(nBatchSizes):
