@@ -62,6 +62,14 @@ fOri = fOri.float()
 filterSigmaOri = data.get("var0").flatten()
 maxRespOri = data.get("rMax").flatten()
 
+# <markdowncell>
+# ## TRAINING 2 PAIRS OF FILTERS WITHOUT FIXING ANY
+# 
+# In this part of the code, we train the model with 2 filters,
+# then add 2 new random filters, and continue training the
+# 4 filters together. We want to see whether the first 2 filters
+# remain fixed through the second round of training.
+
 # <codecell>
 ##############
 #### SET TRAINING PARAMETERS FOR FIRST PAIR OF FILTERS
@@ -69,7 +77,7 @@ maxRespOri = data.get("rMax").flatten()
 nFilt = 2   # Number of filters to use
 filterSigma = float(filterSigmaOri / maxRespOri**2)  # Variance of filter responses
 nEpochs = 20
-lrGamma = 0.3   # multiplication factor for lr decay
+lrGamma = 0.5   # multiplication factor for lr decay
 lossFun = nn.CrossEntropyLoss()
 learningRate = 0.01
 lrStepSize = 10
@@ -92,9 +100,7 @@ trainDataLoader = DataLoader(trainDataset, batch_size=batchSize,
 # Set up optimizer
 opt = torch.optim.Adam(amaPy.parameters(), lr=learningRate)  # Adam
 # Make learning rate scheduler
-scheduler = optim.lr_scheduler.StepLR(opt, step_size=lrStepSize,
-        gamma=lrGamma)
-#opt = torch.optim.SGD(amaPy.parameters(), lr=0.03)  # SGD
+scheduler = optim.lr_scheduler.StepLR(opt, step_size=lrStepSize, gamma=lrGamma)
 
 # <codecell>
 # fit model
@@ -106,37 +112,22 @@ plt.show()
 
 # <codecell>
 ## PLOT THE LEARNED FILTERS
-
-plt.subplot(2,2,1)
-view_filters_bino(amaPy.f[0,:].detach())
-plt.subplot(2,2,2)
-view_filters_bino(amaPy.f[1,:].detach())
-plt.show()
-
-# Print existing parameters names and size
-for name, param in amaPy.named_parameters():
-    print(name, param.shape)
+x = np.linspace(start=-30, stop=30, num=amaPy.nDim) # x axis in arc min
+view_all_filters_bino(amaPy, x=x)
+#plt.show()
 
 # <codecell>
 ## ADD 2 NEW FILTERS
 amaPy.add_new_filters(nFiltNew=2)
 
 # Plot the set of 4 filters before re-training
-plt.subplot(2,2,1)
-view_filters_bino(amaPy.f[0,:].detach())
-plt.subplot(2,2,2)
-view_filters_bino(amaPy.f[1,:].detach())
-plt.subplot(2,2,3)
-view_filters_bino(amaPy.f[2,:].detach())
-plt.subplot(2,2,4)
-view_filters_bino(amaPy.f[3,:].detach())
+view_all_filters_bino(amaPy, x=x)
 plt.show()
-
 
 # <codecell>
 ## TRAIN THE NEW FILTERS TOGETHER WITH ORIGINAL
 learningRate2 = learningRate * 1/3
-nEpochs2 = 20
+nEpochs2 = 30
 # Re-initializing the optimizer after adding filters is required
 opt = torch.optim.Adam(amaPy.parameters(), lr=learningRate2)  # Adam
 scheduler = optim.lr_scheduler.StepLR(opt, step_size=lrStepSize,
@@ -148,13 +139,114 @@ plt.plot(elapsedTimes, loss)
 plt.show()
 
 # Plot filters after learning
-plt.subplot(2,2,1)
-view_filters_bino(amaPy.f[0,:].detach())
-plt.subplot(2,2,2)
-view_filters_bino(amaPy.f[1,:].detach())
-plt.subplot(2,2,3)
-view_filters_bino(amaPy.f[2,:].detach())
-plt.subplot(2,2,4)
-view_filters_bino(amaPy.f[3,:].detach())
+view_all_filters_bino(amaPy, x=x)
+plt.show()
+
+# <markdowncell>
+# ## TRAINING 2 PAIRS OF FILTERS, FIXING THE FIRST PAIR
+# 
+# In this part of the code, we train the model with 2 filters,
+# fix these filters so that they are no longer trainable, add
+# 2 more filters, and then train these 2 new filters on top of
+# the original fixed ones. We aim to see how this procedure compares
+# to the training of different filters without fixing.
+
+# <codecell>
+# DEFINE NEW MODEL TO TRAIN
+amaPy2 = AMA(sAll=s, nFilt=nFilt, ctgInd=ctgInd, filterSigma=filterSigma,
+        ctgVal=ctgVal)
+
+# <codecell>
+# SET PARAMETERS FOR TRAINING THE FILTERS. INITIALIZE OPTIMIZER
+nEpochs = 40
+lrGamma = 0.5   # multiplication factor for lr decay
+lossFun = nn.CrossEntropyLoss()
+learningRate = 0.01
+lrStepSize = 10
+batchSize = 256
+# Set up optimizer
+opt = torch.optim.Adam(amaPy2.parameters(), lr=learningRate)  # Adam
+# Make learning rate scheduler
+scheduler = optim.lr_scheduler.StepLR(opt, step_size=lrStepSize,
+        gamma=lrGamma)
+
+# <codecell>
+# FIT MODEL
+loss, elapsedTimes = fit(nEpochs=nEpochs, model=amaPy2,
+        trainDataLoader=trainDataLoader, lossFun=lossFun, opt=opt,
+        scheduler=scheduler)
+plt.plot(elapsedTimes, loss)
+plt.show()
+
+view_all_filters_bino(amaPy2, x)
+plt.show()
+
+# <codecell>
+# ADD FIXED FILTERS
+# Fix the learned filters in place
+amaPy2.add_fixed_filters(amaPy2.f.detach().clone())
+# Re-initialize trainable filters
+amaPy2.reinitialize_trainable()
+# View current filters
+view_all_filters_bino(amaPy2, x)
+plt.show()
+
+# <codecell>
+# TRAIN THE NEW FILTERS WITH THE OLD FILTERS FIXED IN PLACE
+# Set up optimizer
+opt = torch.optim.Adam(amaPy2.parameters(), lr=learningRate)  # Adam
+# Make learning rate scheduler
+scheduler = optim.lr_scheduler.StepLR(opt, step_size=lrStepSize,
+        gamma=lrGamma)
+# fit model
+loss, elapsedTimes = fit(nEpochs=nEpochs, model=amaPy2,
+        trainDataLoader=trainDataLoader, lossFun=lossFun, opt=opt,
+        scheduler=scheduler)
+plt.plot(elapsedTimes, loss)
+plt.show()
+view_all_filters_bino(amaPy2)
+plt.show()
+
+
+# <codecell>
+# USE FUNCTION THAT TRAINS AMA FILTERS BY PAIRS
+nPairs = 4
+# We need to define a function that returns optimizers, because
+# a new optimizer has to be generated each time we manually change
+# the model parameters
+def opt_fun(model):
+    return torch.optim.Adam(model.parameters(), lr=learningRate)
+# We need to define a function that returns schedulers, because a
+# new one has to be defined for each new optimizer
+def scheduler_fun(opt):
+    return optim.lr_scheduler.StepLR(opt, step_size=lrStepSize, gamma=lrGamma)
+
+# Initialize model to train
+amaPy3 = AMA(sAll=s, nFilt=nFilt, ctgInd=ctgInd, filterSigma=filterSigma,
+        ctgVal=ctgVal)
+
+# <codecell>
+# Train model by pairs
+loss3, elapsedTimes3 = fit_by_pairs(nEpochs=nEpochs, model=amaPy3,
+        trainDataLoader=trainDataLoader, lossFun=lossFun, opt_fun=opt_fun,
+        nPairs=nPairs, scheduler_fun=scheduler_fun)
+
+# <codecell>
+# Visualize trained filters
+view_all_filters_bino(amaPy3)
+plt.show()
+
+# <codecell>
+# View the training loss curves for the learned filters
+for l in range(nPairs):
+    plt.subplot(1, nPairs, l+1)
+    plt.plot(elapsedTimes3[l], loss3[l])
+plt.show()
+
+# <codecell>
+# Visualize MATLAB AMA filters
+for n in range(fOri.shape[0]):
+    plt.subplot(2,2,n+1)
+    view_filters_bino(fOri[n,:])
 plt.show()
 
