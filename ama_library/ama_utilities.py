@@ -4,50 +4,7 @@ from torch import optim
 import matplotlib.pyplot as plt
 import time
 
-# Functions for plotting the filters
-def unvectorize_filter(fIn, frames=15, pixels=30):
-    nFilt = fIn.shape[0]
-    matFilt = fIn.reshape(nFilt, 2, frames, pixels)
-    matFilt = matFilt.transpose(1,2).reshape(nFilt, frames, pixels*2)
-    return matFilt
-
-# Plot filters
-def view_filters_bino_video(fIn, frames=15, pixels=30):
-    matFilt = unvectorize_filter(fIn, frames=frames, pixels=pixels)
-    nFilters = matFilt.shape[0]
-    for k in range(nFilters):
-        plt.subplot(nFilters, 1, k+1)
-        plt.imshow(matFilt[k,:,:].squeeze())
-        ax = plt.gca()
-        ax.axes.xaxis.set_visible(False)
-        ax.axes.yaxis.set_visible(False)
-
-# DEFINE A FUNCTION TO VISUALIZE BINOCULAR FILTERS
-def view_filters_bino(f, x=[], title=''):
-    plt.title(title)
-    nPixels = int(max(f.shape)/2)
-    if len(x) == 0:
-        x = np.arange(nPixels)
-    plt.plot(x, f[:nPixels], label='L', color='red')
-    plt.plot(x, f[nPixels:], label='R', color='blue')
-    plt.ylim(-0.3, 0.3)
-
-
-# Function that turns posteriors into estimate averages, SDs and CIs
-def get_estimate_statistics(estimates, ctgInd, quantiles=[0.05, 0.95]):
-    # Compute means and stds for each true level of the latent variable
-    estimatesMeans = torch.zeros(ctgInd.max()+1)
-    estimatesSD = torch.zeros(ctgInd.max()+1)
-    lowCI = torch.zeros(ctgInd.max()+1)
-    highCI = torch.zeros(ctgInd.max()+1)
-    quantiles = torch.tensor(quantiles, dtype=torch.float64)
-    for cl in ctgInd.unique():
-        levelInd = [i for i, j in enumerate(ctgInd) if j == cl]
-        estimatesMeans[cl] = estimates[levelInd].mean()
-        estimatesSD[cl] = estimates[levelInd].std()
-        (lowCI[cl], highCI[cl]) = torch.quantile(estimates[levelInd], quantiles)
-    return {'estimateMean': estimates, 'estimateSD': estimatesSD,
-            'lowCI': lowCI, 'highCI': highCI}
+## FUNCTIONS FOR FITTING AMA MODELS
 
 # Define loop function to train the model
 def fit(nEpochs, model, trainDataLoader, lossFun, opt, scheduler=None):
@@ -76,7 +33,6 @@ def fit(nEpochs, model, trainDataLoader, lossFun, opt, scheduler=None):
             loss = lossFun(pred, ctgb)  # Compute loss
             loss.backward()             # Compute gradient
             opt.step()                  # Take one step
-            #model.f = model.f / 
             opt.zero_grad()             # Restart gradient
         # Print model loss
         trainingLoss[epoch+1] = lossFun(model.get_posteriors(trainDataLoader.dataset.tensors[0]),
@@ -95,4 +51,102 @@ def fit(nEpochs, model, trainDataLoader, lossFun, opt, scheduler=None):
     # Do the final response statistics update
     model.update_response_statistics()
     return trainingLoss, elapsedTime
+
+
+# Define loop function to train the model
+def fit_by_pairs(nEpochs, model, trainDataLoader, lossFun, opt_fun, nPairs, scheduler_fun=None):
+    """ Fit AMA model training filters by pairs. After a pair is trained, it is fixed
+    in place (no longer trainable), and a new set of trainable filters is then
+    initialized and trained.
+    nEpochs: Number of epochs for each pair of filters. Integer
+    model: AMA model object.
+    trainDataLoader: data loader generated with torch.utils.data.DataLoader
+    lossFun: loss function that uses posterior distribution over classes.
+    opt_fun: A function that takes in a model and returns an optimizer
+    nPairs: Number of pairs to train. nPairs=1 corresponds to only training the filters
+        included in the input model.
+    scheduler_fun: Function that takes in an optimizer and returns a scheduler for
+        that optimizer.
+    """
+    trainingLoss = [None] * nPairs
+    elapsedTimes = [None] * nPairs
+    # Measure time and start loop
+    start = time.time()
+    for p in range(nPairs):
+        # If not the first iteration, fix current filters and add new trainable
+        if (p>0):
+            fAll = model.fixed_and_trainable_filters().detach().clone()
+            model.add_fixed_filters(fAll)
+            model.reinitialize_trainable()
+        print(f'Pair {p}')
+        # Train the current pair of trainable filters
+        opt = opt_fun(model)
+        if (scheduler_fun == None):
+            scheduler = None
+        else:
+            scheduler = scheduler_fun(opt)
+        trainingLoss[p], elapsedTimes[p] = fit(nEpochs=nEpochs, model=model,
+                trainDataLoader=trainDataLoader, lossFun=lossFun, opt=opt,
+                scheduler=scheduler)
+        end = time.time()
+        elapsedTime = end - start
+        print(f'Pair {p} trained in {elapsedTime}')
+    return trainingLoss, elapsedTimes
+
+## FUNCTIONS FOR SUMMARY AND EVALUATION OF MODEL PERFORMANCE
+# Function that turns posteriors into estimate averages, SDs and CIs
+def get_estimate_statistics(estimates, ctgInd, quantiles=[0.05, 0.95]):
+    # Compute means and stds for each true level of the latent variable
+    estimatesMeans = torch.zeros(ctgInd.max()+1)
+    estimatesSD = torch.zeros(ctgInd.max()+1)
+    lowCI = torch.zeros(ctgInd.max()+1)
+    highCI = torch.zeros(ctgInd.max()+1)
+    quantiles = torch.tensor(quantiles, dtype=torch.float64)
+    for cl in ctgInd.unique():
+        levelInd = [i for i, j in enumerate(ctgInd) if j == cl]
+        estimatesMeans[cl] = estimates[levelInd].mean()
+        estimatesSD[cl] = estimates[levelInd].std()
+        (lowCI[cl], highCI[cl]) = torch.quantile(estimates[levelInd], quantiles)
+    return {'estimateMean': estimates, 'estimateSD': estimatesSD,
+            'lowCI': lowCI, 'highCI': highCI}
+
+
+## FUNCTIONS FOR PLOTTING FILTERS OF AMA MODEL
+# Functions for plotting the filters
+def unvectorize_filter(fIn, frames=15, pixels=30):
+    nFilt = fIn.shape[0]
+    matFilt = fIn.reshape(nFilt, 2, frames, pixels)
+    matFilt = matFilt.transpose(1,2).reshape(nFilt, frames, pixels*2)
+    return matFilt
+
+# Plot filters
+def view_filters_bino_video(fIn, frames=15, pixels=30):
+    matFilt = unvectorize_filter(fIn, frames=frames, pixels=pixels)
+    nFilters = matFilt.shape[0]
+    for k in range(nFilters):
+        plt.subplot(nFilters, 1, k+1)
+        plt.imshow(matFilt[k,:,:].squeeze())
+        ax = plt.gca()
+        ax.axes.xaxis.set_visible(False)
+        ax.axes.yaxis.set_visible(False)
+
+# DEFINE A FUNCTION TO VISUALIZE BINOCULAR FILTERS
+def view_filters_bino(f, x=[], title=''):
+    plt.title(title)
+    nPixels = int(max(f.shape)/2)
+    if len(x) == 0:
+        x = np.arange(nPixels)
+    plt.plot(x, f[:nPixels], label='L', color='red')
+    plt.plot(x, f[nPixels:], label='R', color='blue')
+    plt.ylim(-0.3, 0.3)
+
+# DEFINE A FUNCTION TO VISUALIZE ALL BINOCULAR FILTERS OF AN AMA MODEL
+def view_all_filters_bino(amaPy, x=[]):
+    fAll = amaPy.fixed_and_trainable_filters()
+    fAll = fAll.detach()
+    nFiltAll = fAll.shape[0]
+    nPairs = int(nFiltAll/2)
+    for n in range(nFiltAll):
+        plt.subplot(nPairs, 2, n+1)
+        view_filters_bino(fAll[n,:], x=[], title=f'F{n}')
 
