@@ -20,16 +20,16 @@ from torch.utils.data import TensorDataset, DataLoader
 
 # <codecell>
 ##### COMMENT THIS CELL WHEN USING GOOGLE COLAB
-from ama_library import *
+#from ama_library import *
 
 # <codecell>
 #### UNCOMMENT THIS CELL FOR GOOGLE COLAB EXECUTION
-#!pip install geotorch
-#import geotorch
-#!pip install git+https://github.com/dherrera1911/accuracy_maximization_analysis.git
-#from ama_library import *
-#!mkdir data
-#!wget -O ./data/AMAdataDisparity.mat https://github.com/burgelab/AMA/blob/master/AMAdataDisparity.mat?raw=true
+!pip install geotorch
+import geotorch
+!pip install git+https://github.com/dherrera1911/accuracy_maximization_analysis.git
+from ama_library import *
+!mkdir data
+!wget -O ./data/AMAdataDisparity.mat https://github.com/burgelab/AMA/blob/master/AMAdataDisparity.mat?raw=true
 
 
 # <codecell>
@@ -63,12 +63,6 @@ fOri = fOri.float()
 filterSigmaOri = data.get("var0").flatten()
 maxRespOri = data.get("rMax").flatten()
 
-# Put data into Torch data loader tools
-trainDataset = TensorDataset(s, ctgInd)
-# Batch loading and other utilities 
-trainDataLoader = DataLoader(trainDataset, batch_size=batchSize,
-        shuffle=True)
-
 # <markdowncell>
 # ## TEST HOW REPRODUCIBLE THE LEARNED FILTERS ARE, AND TRY DIFFERENT LEARNING PARAMETERS
 # 
@@ -86,6 +80,12 @@ lossFun = nn.CrossEntropyLoss()
 learningRate = 0.02
 lrStepSize = 10
 batchSize = 1024
+
+# Put data into Torch data loader tools
+trainDataset = TensorDataset(s, ctgInd)
+# Batch loading and other utilities 
+trainDataLoader = DataLoader(trainDataset, batch_size=batchSize,
+        shuffle=True)
 
 # Function that returns an optimizer
 def opt_fun(model):
