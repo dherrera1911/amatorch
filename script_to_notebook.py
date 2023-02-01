@@ -5,8 +5,10 @@ from IPython.nbformat import v3, v4
 #outputFile = "./notebooks/ama_batch_size_analysis_dsp.ipynb"
 #inputFile = "./scripts/ama_sequential_training_dsp.py"
 #outputFile = "./notebooks/ama_sequential_training.ipynb"
-inputFile = "./scripts/ama_manifold_geometry_analysis.py"
-outputFile = "./notebooks/ama_manifold_geometry_analysis.ipynb"
+#inputFile = "./scripts/ama_manifold_geometry_analysis.py"
+#outputFile = "./notebooks/ama_manifold_geometry_analysis.ipynb"
+inputFile = "./scripts/ama_filter_learning_robustness.py"
+outputFile = "./notebooks/ama_filter_learning_robustness.ipynb"
 
 fpin = open(inputFile)
 text = fpin.read()
