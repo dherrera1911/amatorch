@@ -20,16 +20,16 @@ from torch.utils.data import TensorDataset, DataLoader
 
 # <codecell>
 ##### COMMENT THIS CELL WHEN USING GOOGLE COLAB
-#from ama_library import *
+from ama_library import *
 
 # <codecell>
 #### UNCOMMENT THIS CELL FOR GOOGLE COLAB EXECUTION
-!pip install geotorch
-import geotorch
-!pip install git+https://github.com/dherrera1911/accuracy_maximization_analysis.git
-from ama_library import *
-!mkdir data
-!wget -O ./data/AMAdataDisparity.mat https://github.com/burgelab/AMA/blob/master/AMAdataDisparity.mat?raw=true
+#!pip install geotorch
+#import geotorch
+#!pip install git+https://github.com/dherrera1911/accuracy_maximization_analysis.git
+#from ama_library import *
+#!mkdir data
+#!wget -O ./data/AMAdataDisparity.mat https://github.com/burgelab/AMA/blob/master/AMAdataDisparity.mat?raw=true
 
 
 # <codecell>
