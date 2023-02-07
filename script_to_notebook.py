@@ -1,5 +1,5 @@
 # This script takes as input a .py file and outputs a formatted python notebook
-from IPython.nbformat import v3, v4
+from nbformat import v3, v4
 
 #inputFile = "./scripts/ama_batch_size_analysis_dsp.py"
 #outputFile = "./notebooks/ama_batch_size_analysis_dsp.ipynb"
