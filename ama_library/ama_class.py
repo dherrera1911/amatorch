@@ -97,7 +97,7 @@ class AMA(nn.Module):
         """ Compute latent variable estimates for each stimulus in s.
         Input: s (nPoints x nDim) is stimulus matrix
         Output: estimates (nPoints). Vector with the estimate for each stimulus """
-        posteriors = self.get_posteriors(s)
+        posteriors = self.get_posteriors(s).double()
         if method4est=='MAP':
             # Get maximum posteriors indices of each stim, and its value
             (a, estimateInd) = torch.max(posteriors, dim=1)
