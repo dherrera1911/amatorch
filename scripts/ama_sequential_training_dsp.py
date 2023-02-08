@@ -78,7 +78,8 @@ nFilt = 2   # Number of filters to use
 filterSigma = float(filterSigmaOri / maxRespOri**2)  # Variance of filter responses
 nEpochs = 20
 lrGamma = 0.5   # multiplication factor for lr decay
-lossFun = nn.CrossEntropyLoss()
+#lossFun = nn.CrossEntropyLoss()
+lossFun = cross_entropy_loss()
 learningRate = 0.01
 lrStepSize = 10
 batchSize = 256
@@ -100,7 +101,7 @@ trainDataLoader = DataLoader(trainDataset, batch_size=batchSize,
 # Set up optimizer
 opt = torch.optim.Adam(amaPy.parameters(), lr=learningRate)  # Adam
 # Make learning rate scheduler
-scheduler = optim.lr_scheduler.StepLR(opt, step_size=lrStepSize, gamma=lrGamma)
+scheduler = torch.optim.lr_scheduler.StepLR(opt, step_size=lrStepSize, gamma=lrGamma)
 
 # <codecell>
 # fit model
@@ -160,7 +161,6 @@ amaPy2 = AMA(sAll=s, nFilt=nFilt, ctgInd=ctgInd, filterSigma=filterSigma,
 # SET PARAMETERS FOR TRAINING THE FILTERS. INITIALIZE OPTIMIZER
 nEpochs = 40
 lrGamma = 0.5   # multiplication factor for lr decay
-lossFun = nn.CrossEntropyLoss()
 learningRate = 0.01
 lrStepSize = 10
 batchSize = 256

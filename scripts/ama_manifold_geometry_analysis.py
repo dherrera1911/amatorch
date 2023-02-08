@@ -22,6 +22,8 @@ from torch.utils.data import TensorDataset, DataLoader
 ##### COMMENT THIS CELL WHEN USING GOOGLE COLAB
 from ama_library import *
 import pymanopt as pm
+import geomstats as gs
+from geomstats.geometry.spd_matrices import SPDMatrices
 
 # <codecell>
 #### UNCOMMENT THIS CELL FOR GOOGLE COLAB EXECUTION
@@ -64,49 +66,57 @@ maxRespOri = data.get("rMax").flatten()
 ##############
 #### SET TRAINING PARAMETERS
 ##############
-nFilt = 2   # Number of filters to use
+nPairs = 2   # Number of filters to use
 filterSigma = float(filterSigmaOri / maxRespOri**2)  # Variance of filter responses
-nEpochs = 20
+nEpochs = 30
 lrGamma = 0.3   # multiplication factor for lr decay
-lossFun = nn.CrossEntropyLoss()
-learningRate = 0.01
+lossFun = cross_entropy_loss()
+learningRate = 0.02
 lrStepSize = 10
-batchSize = 256
+batchSize = 512
+nSeeds = 4
 
+nFilt = nPairs * 2
 # <codecell>
 ##############
-####  TRAIN THE MODEL
+####  TRAIN THE MODEL, GET FILTERS AND COVARIANCES OF TRAINED MODEL
 ##############
 # Define model
-amaPy = AMA(sAll=s, nFilt=nFilt, ctgInd=ctgInd, filterSigma=filterSigma,
+amaPy = AMA(sAll=s, nFilt=2, ctgInd=ctgInd, filterSigma=filterSigma,
         ctgVal=ctgVal)
-
-# Extract the initial random response covariances
-respRandomCovs = amaPy.respCovs.detach().numpy()
-fRandom = amaPy.f.detach().clone().numpy()
 
 # Put training data into Torch data loader tools
 trainDataset = TensorDataset(s, ctgInd)
 # Batch loading and other utilities 
 trainDataLoader = DataLoader(trainDataset, batch_size=batchSize, shuffle=True)
-# Set up optimizer
-opt = torch.optim.Adam(amaPy.parameters(), lr=learningRate)  # Adam
-# Make learning rate scheduler
-scheduler = optim.lr_scheduler.StepLR(opt, step_size=lrStepSize, gamma=lrGamma)
+# Function that returns an optimizer
+def opt_fun(model):
+    return torch.optim.Adam(model.parameters(), lr=learningRate)
+# Function that returns a scheduler
+def scheduler_fun(opt):
+    return torch.optim.lr_scheduler.StepLR(opt, step_size=lrStepSize, gamma=lrGamma)
 
 # <codecell>
 # fit model to data
-loss, elapsedTimes = fit(nEpochs=nEpochs, model=amaPy,
-        trainDataLoader=trainDataLoader, lossFun=lossFun, opt=opt,
-        scheduler=scheduler)
-plt.plot(elapsedTimes, loss)
-plt.xlabel('Time (s)')
-plt.ylabel('Loss')
-plt.show()
+loss, elapsedTimes = fit_by_pairs(nEpochs=nEpochs, model=amaPy,
+        trainDataLoader=trainDataLoader, lossFun=lossFun, opt_fun=opt_fun,
+        nPairs=nPairs, scheduler_fun=scheduler_fun,
+        seedsByPair=nSeeds)
 
 # Extract response covariances for trained filters
 respCovs = amaPy.respCovs.detach().numpy()
 fLearned = amaPy.f.detach().clone().numpy()
+
+# <codecell>
+##############
+#### DEFINE UNTRAINED MODEL TO GET RANDOM FILTERS AND THEIR COVARIANCES
+##############
+amaPyRand = AMA(sAll=s, nFilt=nFilt, ctgInd=ctgInd, filterSigma=filterSigma,
+        ctgVal=ctgVal)
+# Extract response covariances for trained filters
+respRandomCovs = amaPyRand.respCovs.detach().numpy()
+fRandom = amaPyRand.f.detach().clone().numpy()
+
 
 # <codecell>
 ##############
@@ -172,6 +182,7 @@ manifold = pm.manifolds.positive_definite.SymmetricPositiveDefinite(amaPy.nFilt,
 # Euclidean
 #manifold = pm.manifolds.euclidean.Euclidean((nFilt, nFilt))
 
+
 # <codecell>
 ### Compute average distance between a class and its neighbors
 respCovDist = compute_average_dist(respCovs, manifold)
@@ -197,16 +208,16 @@ anglesList = [respCovAng, respRandomCovAng, respPCACovAng]
 nModels = len(namesList)
 x = np.linspace(start=-30, stop=30, num=nPixels) # x axis in arc min
 for n in range(nModels):
-    fPlot = fList[n]
-    plt.subplot(2,3,n+1)
-    view_filters_bino(f=fPlot[0,:], x=x, title=namesList[n])
-    if (n>0):
+    for nf in range(nFilt):
+        fPlot = fList[n]
+        plt.subplot(nFilt, nModels, n+1+nModels*nf)
+        titleStr = namesList[n]
+        if (nf>0):
+            titleStr = ''
+        view_filters_bino(f=fPlot[nf,:], x=x, title=titleStr)
         plt.yticks([])
-    plt.subplot(2,3,n+4)
-    view_filters_bino(f=fPlot[1,:], x=x)
-    if (n>0):
-        plt.yticks([])
-    plt.xlabel('Visual field (arcmin)')
+        plt.xlabel('Visual field (arcmin)')
+
 plt.show()
 
 # <codecell>
@@ -235,36 +246,49 @@ plt.show()
 
 
 # <codecell>
-# Check whether the distances depend on
-# the order of the filters, or on their rotations
-#
-## Distances when changing the order of vectors
-#fPCA2 = fPCA[[1,0],:]
-#pcaCovs2 = torch.einsum('fd,jdb,gb->jfg', fPCA2, stimCovs, fPCA2)
-#pcaCovs2 = pcaCovs2.numpy()
-#swappedDist = np.zeros(amaPy.nClasses)
-#for c in range(amaPy.nClasses):
-#    swappedDist[c] = manifold.dist(pcaCovs[c,:,:], pcaCovs2[c,:,:])
-#
-#plt.plot(ctgVal, swappedDist)
-#plt.xlabel('Disparity (arcmin)')
-#plt.ylabel('Distance between swapped filters covariances')
-#plt.show()
-#
-#manifold.log(pcaCovs[0,:,:], pcaCovs2[0,:,:])
-#manifold.log(pcaCovs[0,:,:], pcaCovs[1,:,:])
-#
-## <codecell>
-## Distances when changing the sign of the vectors
-#fPCA3 = -fPCA
-#pcaCovs3 = torch.einsum('fd,jdb,gb->jfg', fPCA3, stimCovs, fPCA3)
-#pcaCovs3 = pcaCovs3.numpy()
-#negativeDist = np.zeros(amaPy.nClasses)
-#for c in range(amaPy.nClasses):
-#    negativeDist[c] = manifold.dist(pcaCovs[c,:,:], pcaCovs3[c,:,:])
-#
-#plt.plot(ctgVal, negativeDist)
-#plt.xlabel('Disparity (arcmin)')
-#plt.ylabel('Distance between negative filters covariances')
-#plt.show()
-#
+from sklearn.manifold import Isomap
+
+# Define function to compute matrix of pairwise distances
+def compute_dist_matrix(inputMat, inputMan):
+    nClasses = inputMat.shape[0]
+    distMat = np.zeros((nClasses, nClasses))
+    for c in range(nClasses):
+        point1 = inputMat[c,:,:]
+        for d in range(nClasses):
+            point2 = inputMat[d,:,:]
+            distMat[c,d] = inputMan.dist(point1, point2)
+    # make matrix symmetric, taking largest distance in unmatched points
+    distMat = np.maximum(distMat, distMat.transpose())
+    return distMat
+
+# Get pairwise distance matrix for trained filter responses
+distMatResp = compute_dist_matrix(respCovs, manifold)
+distMatRand = compute_dist_matrix(respRandomCovs, manifold)
+distMatPCA = compute_dist_matrix(pcaCovs, manifold)
+distMatList = [distMatResp, distMatRand, distMatPCA] # put into list for nicer code
+
+# Plot distance matrices
+for n in range(nModels):
+    plt.subplot(1,nModels,n+1)
+    plt.title(namesList[n]) 
+    plt.imshow(distMatList[n], zorder=2, cmap='Blues', interpolation='nearest')
+    plt.colorbar();
+plt.show()
+
+isomap_model = Isomap(n_neighbors=5, n_components=2, metric='precomputed')
+out = [None] * nModels
+for n in range(nModels):
+    out[n] = isomap_model.fit_transform(distMatList[n])
+    plt.subplot(1,nModels,n+1)
+    plt.title(namesList[n]) 
+    plt.scatter(out[n][:,0], out[n][:,1], c=amaPy.ctgVal)
+    if (n==(nModels-1)):
+        plt.colorbar();
+    plt.axis('equal');
+plt.show()
+
+## Look into geometries of geomstats. Information geometry
+#from geomstats.information_geometry.normal import NormalDistributions
+#import geomstats
+
+

@@ -1,10 +1,11 @@
 # <markdowncell>
 
-# #Disparity estimation and filter training in pairs
+# #Disparity estimation and reproducibility of learned filters
 # 
-# Train AMA on the task of disparity estimation. Train two
-# pairs of filters, one after the other (first the model
-# with 2 filters, and then the model with 4 filters)
+# Train AMA several times with different seeds, and compare the filters
+# learned across runs. Learning is done by filter pairs
+# Test the functionality of training the model by training on several
+# seeds and selecting the best pair of filters at each run.
 
 # <codecell>
 ##############
@@ -72,14 +73,15 @@ maxRespOri = data.get("rMax").flatten()
 #### Set the parameters for training the models
 ##############
 
-nPairs = 3   # Number of filters to use
+nPairs = 4   # Number of filters to use
 filterSigma = float(filterSigmaOri / maxRespOri**2)  # Variance of filter responses
-nEpochs = 50
+nEpochs = 30
 lrGamma = 0.5   # multiplication factor for lr decay
-lossFun = nn.CrossEntropyLoss()
+lossFun = cross_entropy_loss()
+#lossFun = mse_loss()
 learningRate = 0.02
 lrStepSize = 10
-batchSize = 1024
+batchSize = 256
 
 # Put data into Torch data loader tools
 trainDataset = TensorDataset(s, ctgInd)
@@ -131,8 +133,47 @@ plt.show()
 
 # <codecell>
 ##############
+#### See filter variability when we train several
+#### filters at each step and choose the best performing one
+##############
+
+nSeeds = 5
+nModels = 2
+loss = [None] * nModels
+finalLosses = np.zeros((nModels, nPairs))
+elapsedTimes = [None] * nModels
+filters = [None] * nModels
+
+for n in range(nModels):
+    amaPy = AMA(sAll=s, nFilt=2, ctgInd=ctgInd, filterSigma=filterSigma,
+        ctgVal=ctgVal)
+    loss[n], elapsedTimes[n] = fit_by_pairs(nEpochs=nEpochs, model=amaPy,
+        trainDataLoader=trainDataLoader, lossFun=lossFun, opt_fun=opt_fun,
+        nPairs=nPairs, scheduler_fun=scheduler_fun, seedsByPair=nSeeds)
+    filters[n] = amaPy.fixed_and_trainable_filters().detach().clone()
+    for p in range(nPairs):
+        finalLosses[n, p] = loss[n][p][-1]
+
+# Print the loss of the model after each pair of filters is learned.
+# Columns indicate the pair of filters, and rows indicate the model instance
+print(finalLosses)
+
+# <codecell>
+# Plot filters learned by selecting the best filters at each pair
+nFilt = nPairs * 2
+for n in range(nModels):
+    for nf in range(nFilt):
+        plt.subplot(nModels, nFilt, n*nFilt + nf + 1)
+        view_filters_bino(filters[n][nf,:])
+        plt.yticks([])
+        plt.xticks([])
+plt.show()
+
+
+# <codecell>
+##############
 #### Try out different optimization parameters to see if there's
-#### differences in the resulting variability
+#### differences in the resulting filter variability
 ##############
 
 nModels = 5
@@ -140,10 +181,8 @@ nPairs = 3   # Numbers of pairs of filters to learn
 filterSigma = float(filterSigmaOri / maxRespOri**2)  # Variance of filter responses
 nEpochs = 40
 lrGamma = 0.5   # multiplication factor for lr decay
-lossFun = nn.CrossEntropyLoss()
 learningRate = 0.02
 lrStepSize = 10
-batchSize = 1024
 
 batchSize = [128, 256, 1024]
 learningRate = [0.04, 0.01]

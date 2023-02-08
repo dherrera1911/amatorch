@@ -69,7 +69,7 @@ nFilt = 2   # Number of filters to use
 filterSigma = float(filterSigmaOri / maxRespOri**2)     # Variance of filter responses
 nEpochsBase = 150
 lrGamma = 0.3   # multiplication factor for lr decay
-lossFun = nn.CrossEntropyLoss()
+lossFun = cross_entropy_loss()
 learningRate = 0.01
 
 # <codecell>
@@ -100,7 +100,7 @@ for bs in range(nBatchSizes):
     # Set up optimizer
     opt = torch.optim.Adam(amaPy.parameters(), lr=learningRate)  # Adam
     # Make learning rate scheduler
-    scheduler = optim.lr_scheduler.StepLR(opt, step_size=lrStepSize,
+    scheduler = torch.optim.lr_scheduler.StepLR(opt, step_size=lrStepSize,
             gamma=lrGamma)
     #opt = torch.optim.SGD(amaPy.parameters(), lr=0.03)  # SGD
     # fit model
