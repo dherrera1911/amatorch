@@ -56,6 +56,8 @@ class AMA(nn.Module):
         to match the current object filters """
         self.nFiltAll =  self.fFixed.shape[0] + self.f.shape[0]
         fAll = self.fixed_and_trainable_filters() # Get all filters (fixed and trainable)
+        self.noiseCov = torch.eye(self.nFiltAll).repeat(self.nClasses,1,1) \
+                * self.filterSigma
         # Update covariances, size nClasses*nFilt*nFilt
         self.respCovs = torch.einsum('fd,jdb,gb->jfg', fAll,
                 self.stimCovs, fAll) # Get the response covariances.
@@ -118,8 +120,6 @@ class AMA(nn.Module):
         self.f = fNew
         self.nFilt = self.f.shape[0]
         self.nFiltAll = self.nFilt + self.fFixed.shape[0]
-        self.noiseCov = torch.eye(self.nFiltAll).repeat(self.nClasses,1,1) \
-                * self.filterSigma  # Update in case there's new filters
         self.update_response_statistics()
 
     def add_new_filters(self, nFiltNew=2):
@@ -135,6 +135,7 @@ class AMA(nn.Module):
         """ Add new filters to the model, that are not trainable parameters.
         Input: fFixed (nFilt x nDim) is the tensor with the new filters as rows."""
         self.fFixed = fFixed
+        self.update_response_statistics()
 
     def reinitialize_trainable(self):
         """ Re-initialize the trainable filters to random values """
