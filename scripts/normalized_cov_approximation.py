@@ -480,6 +480,7 @@ fig.set_size_inches(10,9)
 plt.show()
 
 
+# <codecell>
 #
 #########################
 ##### Do empirical vs analytic for the 3D speed dataset
