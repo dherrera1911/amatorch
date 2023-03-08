@@ -108,8 +108,8 @@ nDim = torch.tensor([20, 50, 200]) # Vector with number of dimensions to use
 sigmaVec = torch.tensor([0.1, 0.5, 1, 2, 5]) # Vector with sigma values to use
 nFits = len(nDim) * len(sigmaVec)
 
-nSamplesRef = torch.tensor(5*10**5) # N Samples for reference empirical distribution
-nSamplesLow = torch.tensor(500) # N Samples for noisy empirical estimation
+nSamplesRef = torch.tensor(2*10**5) # N Samples for reference empirical distribution
+nSamplesLow = torch.tensor(1000) # N Samples for noisy empirical estimation
 
 smDict = {'nDim': torch.zeros(nFits), 'sigma': torch.zeros(nFits),
         'smAnalytic': [], 'smEmpRef': [], 'smEmpLow': []}
@@ -317,8 +317,8 @@ covDiag = False
 
 nFits = len(nDim) * len(sigmaVec) * len(gVec)
 
-nSamplesRef = torch.tensor(5*10**5) # N Samples for reference empirical distribution
-nSamplesLow = torch.tensor(500) # N Samples for noisy empirical estimation
+nSamplesRef = torch.tensor(2*10**5) # N Samples for reference empirical distribution
+nSamplesLow = torch.tensor(1000) # N Samples for noisy empirical estimation
 
 smDict = {'nDim': torch.zeros(nFits), 'sigma': torch.zeros(nFits), 'g': torch.zeros(nFits),
         'sigmaCov': [], 'smAnalytic': [], 'smEmpRef': [], 'smEmpLow': []}
@@ -344,7 +344,7 @@ for d in range(len(nDim)):
                 #diagW = torch.rand(1)
                 #sigmaCov = (offDiag * (1-diagW) + torch.eye(df)*diagW) * sigma
                 c1 = torch.randn(int(df), int(df))
-                offDiag = torch.matmul(c1, c1.transpose(0,1))
+                offDiag = torch.cov(c1)
                 diagW = torch.rand(1)
                 sigmaCov = (offDiag * (1-diagW) + torch.eye(df)*diagW) * sigma
             else:
@@ -433,7 +433,7 @@ plt.show()
 ### For better visualization of the results, we
 ### view the 3 second moment matrices for one of the cases
 # Select the noise and dimensions level
-noiseInd = 1
+noiseInd = 2
 dimInd = 2
 
 # Look for the index in the dictionary matching those levels
