@@ -479,7 +479,7 @@ fig = plt.gcf()
 lines = lines[0:2]
 labels = labels[0:2]
 fig.legend(lines, labels, loc='upper right')
-fig.set_size_inches(10,6)
+fig.set_size_inches(16,14)
 plt.show()
 
 # <markdowncell>
@@ -533,7 +533,7 @@ plt.title(f'Reference - Low sample', fontsize=11)
 fig = plt.gcf()
 fig.suptitle(f'Second moments d={int(nDim[dimInd])}, $\sigma$={sigmaVec[noiseInd]:.2f}')
 plt.setp(fig.get_axes(), xticks=[], yticks=[])
-fig.set_size_inches(7,6)
+fig.set_size_inches(9,8)
 plt.show()
 
 
@@ -555,7 +555,7 @@ for r in range(nRows):
 fig = plt.gcf()
 fig.suptitle(f'Noise covariances for each dimension and $\sigma$')
 plt.setp(fig.get_axes(), xticks=[], yticks=[])
-fig.set_size_inches(10,9)
+fig.set_size_inches(14,12)
 plt.show()
 
 
@@ -610,7 +610,7 @@ import scipy as sp
 
 # <codecell>
 # COMMENT THIS CELL FOR GOOGLE COLAB EXECUTION
-import ama_library.ama_utilities as au
+#import ama_library.ama_utilities as au
 
 # <codecell>
 #### UNCOMMENT THIS CELL FOR GOOGLE COLAB EXECUTION
@@ -618,7 +618,7 @@ import ama_library.ama_utilities as au
 import geotorch
 !pip install git+https://github.com/dherrera1911/accuracy_maximization_analysis.git
 import ama_library.ama_utilities as au
-wget -O ./data/amaInput_12dir_3speed_0stdDsp_train.mat https://drive.google.com/file/d/1m7BXFZFe0ppsHhURFbhqaCqHR3vTbD6V/view?usp=sharing
+!wget -O ./data/amaInput_12dir_3speed_0stdDsp_train.mat https://drive.google.com/file/d/1m7BXFZFe0ppsHhURFbhqaCqHR3vTbD6V/view?usp=sharing
 
 # <codecell>
 #########################
