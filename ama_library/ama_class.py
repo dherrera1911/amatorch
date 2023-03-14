@@ -7,20 +7,24 @@ import torch.nn.utils.parametrize as parametrize
 
 # Define model class
 class AMA(nn.Module):
-    def __init__(self, sAll, ctgInd, nFilt=2, filterSigma=0.02, ctgVal=None):
+    def __init__(self, sAll, ctgInd, nFilt=2, filterSigma=0.02,
+            pixelSigma=0, ctgVal=None):
         """ AMA model object.
         sAll: input stimuli. shape batch x features
         ctgInd: category index of each stimulus
         nFilt: number of filters to train (optional if fInit not None)
         filterSigma: variance of filter response noise
+        pixelSigma: variance of noise added to input stimuli
         fInit: user defined filters (optional). shape nFilt x features """
         super().__init__()
         # Make initial random filters
         fInit = torch.randn(nFilt, sAll.shape[1])
         fInit = F.normalize(fInit, p=2, dim=1)
-        self.f = nn.Parameter(fInit)    # Model parameters
-        self.fFixed = torch.tensor([])  # Attribute with fixed (non-trainable) filters. Start as empty
+        # Model parameters
+        self.f = nn.Parameter(fInit)
         geotorch.sphere(self, "f")
+        # Attribute with fixed (non-trainable) filters. Empty unless manually filled
+        self.fFixed = torch.tensor([])
         # Get the dimensions of different relevant vectors
         self.nFilt = self.f.shape[0]
         self.nFiltAll = self.nFilt      # Number of filters including fixed filters
