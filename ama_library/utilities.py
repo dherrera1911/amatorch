@@ -1,18 +1,23 @@
 import numpy as np
 import torch
 from torch import optim
-from torch.special import gammaln
+from torch import fft as fft
 import matplotlib.pyplot as plt
 import time
-import mpmath as mpm  # Important to use mpmath for hyp1f1, scipy blows up
 
+##################################
+##################################
 #
 ## FUNCTIONS FOR FITTING AMA MODELS
+#
+##################################
+##################################
 #
 # This group of functions take an ama model, and some inputs
 # such as the loss function, and do the training loop.
 # Different types of training are available, such as training
 # the filters in pairs, or with multiple seeds
+
 
 # Define loop function to train the model
 def fit(nEpochs, model, trainDataLoader, lossFun, opt, scheduler=None):
@@ -60,63 +65,20 @@ def fit(nEpochs, model, trainDataLoader, lossFun, opt, scheduler=None):
     return trainingLoss, elapsedTime
 
 
-# Define loop function to train the model
-def fit_by_pairs(nEpochs, model, trainDataLoader, lossFun, opt_fun,
-        nPairs, scheduler_fun=None, seedsByPair=1):
-    """ Fit AMA model training filters by pairs. After a pair is trained, it is fixed
-    in place (no longer trainable), and a new set of trainable filters is then
-    initialized and trained. Has the option to try different seeds for each pair of
-    filters trained, and choosing the best pair
-    nEpochs: Number of epochs for each pair of filters. Integer
-    model: AMA model object.
-    trainDataLoader: data loader generated with torch.utils.data.DataLoader
-    lossFun: loss function that uses posterior distribution over classes.
-    opt_fun: A function that takes in a model and returns an optimizer
-    nPairs: Number of pairs to train. nPairs=1 corresponds to only training the filters
-        included in the input model.
-    scheduler_fun: Function that takes in an optimizer and returns a scheduler for
-        that optimizer.
-    seedsByPair: number of times to train each pair from different random initializations,
-        to choose the best pair.
-    """
-    trainingLoss = [None] * nPairs
-    elapsedTimes = [None] * nPairs
-    # Measure time and start loop
-    start = time.time()
-    for p in range(nPairs):
-        # If not the first iteration, fix current filters and add new trainable
-        if (p>0):
-            fAll = model.fixed_and_trainable_filters().detach().clone()
-            model.add_fixed_filters(fAll)
-            model.reinitialize_trainable()
-        print(f'Pair {p}')
-        # Train the current pair of trainable filters
-        trainingLoss[p], elapsedTimes[p] = fit_multiple_seeds(nEpochs=nEpochs,
-                model=model, trainDataLoader=trainDataLoader, lossFun=lossFun,
-                opt_fun=opt_fun, scheduler_fun=scheduler_fun, nSeeds=seedsByPair)
-        end = time.time()
-        elapsedTime = end - start
-        print(f'########## Pair {p+1} trained in {elapsedTime} ##########')
-    # Put all the filters into the f model attribute
-    fAll = model.fixed_and_trainable_filters().detach().clone()
-    model.assign_filter_values(fAll)
-    model.add_fixed_filters(torch.tensor([]))
-    return trainingLoss, elapsedTimes
-
-
 # LOOP TO TRAIN MULTIPLE SEEDS AND CHOOSE BEST
 def fit_multiple_seeds(nEpochs, model, trainDataLoader, lossFun, opt_fun,
         scheduler_fun=None, nSeeds=1):
     """ Fit AMA model multiple times from different seeds, and keep the result with
-    best performance. 
+    best performance.
     nEpochs: Number of epochs for each pair of filters. Integer
     model: AMA model object.
     trainDataLoader: data loader generated with torch.utils.data.DataLoader
     lossFun: loss function that uses posterior distribution over classes.
     opt_fun: A function that takes in a model and returns an optimizer
-    scheduler_fun: Function that takes in an optimizer and returns a scheduler for
-        that optimizer.
-    nSeeds: number of times to train the filters among which to choose the best ones
+    scheduler_fun: Function that takes in an optimizer and returns a
+        scheduler for that optimizer.
+    nSeeds: number of times to train the filters among which to choose
+        the best ones
     """
     if (nSeeds>1):
         # Initialize lists to fill
@@ -158,8 +120,57 @@ def fit_multiple_seeds(nEpochs, model, trainDataLoader, lossFun, opt_fun,
     return minLoss, minElapsed
 
 
+# TRAIN MODEL FILTERS IN PAIRS, WITH POSSIBLE SEED SELECTION
+def fit_by_pairs(nEpochs, model, trainDataLoader, lossFun, opt_fun,
+        nPairs, scheduler_fun=None, seedsByPair=1):
+    """ Fit AMA model training filters by pairs. After a pair is trained, it
+    is fixed in place (no longer trainable), and a new set of trainable
+    filters is then initialized and trained. Has the option to try different
+    seeds for each pair of filters trained, and choosing the best pair
+    nEpochs: Number of epochs for each pair of filters. Integer
+    model: AMA model object.
+    trainDataLoader: data loader generated with torch.utils.data.DataLoader
+    lossFun: loss function that uses posterior distribution over classes.
+    opt_fun: A function that takes in a model and returns an optimizer
+    nPairs: Number of pairs to train. nPairs=1 corresponds to only training
+        the filters included in the input model.
+    scheduler_fun: Function that takes in an optimizer and returns a
+        scheduler for that optimizer.
+    seedsByPair: number of times to train each pair from different random
+        initializations, to choose the best pair.
+    """
+    trainingLoss = [None] * nPairs
+    elapsedTimes = [None] * nPairs
+    # Measure time and start loop
+    start = time.time()
+    for p in range(nPairs):
+        # If not the first iteration, fix current filters and add new trainable
+        if (p>0):
+            fAll = model.fixed_and_trainable_filters().detach().clone()
+            model.add_fixed_filters(fAll)
+            model.reinitialize_trainable()
+        print(f'Pair {p}')
+        # Train the current pair of trainable filters
+        trainingLoss[p], elapsedTimes[p] = fit_multiple_seeds(nEpochs=nEpochs,
+                model=model, trainDataLoader=trainDataLoader, lossFun=lossFun,
+                opt_fun=opt_fun, scheduler_fun=scheduler_fun, nSeeds=seedsByPair)
+        end = time.time()
+        elapsedTime = end - start
+        print(f'########## Pair {p+1} trained in {elapsedTime} ##########')
+    # Put all the filters into the f model attribute
+    fAll = model.fixed_and_trainable_filters().detach().clone()
+    model.assign_filter_values(fAll)
+    model.add_fixed_filters(torch.tensor([]))
+    return trainingLoss, elapsedTimes
+
+
+##################################
+##################################
 #
 ## LOSS FUNCTIONS
+#
+##################################
+##################################
 #
 # Define loss functions that take as input AMA model, so
 # different outputs can be used with the same fitting functions
@@ -172,23 +183,27 @@ def cross_entropy_loss():
     ctgInd: true categories of stimuli, as a vector with category index
         type torch.LongTensor"""
     crossEnt = torch.nn.CrossEntropyLoss()
+
     def lossFun(model, s, ctgInd):
         loss = crossEnt(model.get_posteriors(s), ctgInd)
         return loss
     return lossFun
 
+
 def mse_loss():
     """ MSE loss for AMA. Computes MSE between the latent variable
-    estimate 
+    estimate
     model: AMA model object
     s: input stimuli. tensor shaped batch x features
     ctgInd: true categories of stimuli. type torch.LongTensor"""
     mseLoss = torch.nn.MSELoss()
+
     def lossFun(model, s, ctgInd):
         loss = mseLoss(model.get_estimates(s, method4est='MMSE'),
                 model.ctgVal[ctgInd])
         return loss
     return lossFun
+
 
 def mae_loss():
     """ MAE loss for AMA. Computes MAE between the latent variable
@@ -197,6 +212,7 @@ def mae_loss():
     s: input stimuli. tensor shaped batch x features
     ctgInd: true categories of stimuli. type torch.LongTensor"""
     mseLoss = torch.nn.L1Loss()
+
     def lossFun(model, s, ctgInd):
         loss = mseLoss(model.get_estimates(s, method4est='MMSE'),
                 model.ctgVal[ctgInd])
@@ -204,111 +220,16 @@ def mae_loss():
     return lossFun
 
 
+##################################
+##################################
 #
-## STIMULUS NORMALIZATION
+## Stimulus processing
 #
-
+##################################
+##################################
 #
-## CALCULATE STIMULI STATISTICS UNDER NORMALIZATION
-#
-# This group of functions provides several functionalities
-# to analytically calculate first and second moments of different
-# distributions. Mainly, utilities for ratios of quadratic forms,
-# inverse non-central chi squared distribution, and inverse
-# non-central chi distribution are provided.
-
-# Second moment with broadband normalization, isotropic noise
-def isotropic_broadb_sm_batch(s, sigma):
-    """ Estimate the second moment of a noisy normalized stimulus,
-    with isotropic white noise and broadband normalization.
-    s: Stimulus mean. shape (nStim x nDim)
-    sigma: Standar deviation of the isotropic noise
-    """
-    nStim = int(s.shape[0])  # Get number of dimensions
-    df = int(s.shape[1])  # Get number of dimensions
-    sNorm = s/sigma
-    # non-centrality parameter, ||\mu||^2. Make numpy array for mpm package
-    nc = np.array(sNorm.norm(dim=1)**2)
-    outerProds = torch.einsum('nd,nb->ndb', sNorm, sNorm)
-    # Calculate hypergeometric functions (not vectorized function)
-    hypFunNoise = torch.zeros(nStim)
-    hypFunMean = torch.zeros(nStim)
-    for i in range(nStim):
-    # Hypergeometric function for the term with the identity
-        hypFunNoise[i] = torch.tensor(float(mpm.hyp1f1(1, df/2+1, -nc[i]/2)))
-        # Hypergeometric function for the term with the mean
-        hypFunMean[i] = torch.tensor(float(mpm.hyp1f1(1, df/2+2, -nc[i]/2))) 
-    # Get the outer product of the normalized stimulus, and multiply by weight
-    meanTerm = torch.einsum('ndb,n->db', outerProds,
-            hypFunMean * (1/(df+2)) * (1/nStim))
-    # Multiply the identity matrix by weighting term 
-    noiseTerm = torch.einsum('ndb,n->db', torch.eye(df).repeat((nStim,1,1)),
-             hypFunNoise * (1/df) * (1/nStim))
-    # Add the two terms
-    expectedCov = (meanTerm + noiseTerm)
-    return expectedCov
-
-
-# Inverse non-centered chi expectation.
-def inv_ncx(mu, sigma):
-    """ Get the expected value of the inverse of the norm
-    of a multivariate gaussian X with mean mu and isotropic noise
-    variance sigma.
-    mu: Mean of the gaussian. length df
-    sigma: Standard deviation of isotropic noise. Scalar
-    """
-    df = len(mu)
-    # lambda parameter of non-central chi distribution, squared
-    lam = np.array(torch.sum((mu/sigma)**2))
-    gammaQRes = (1/np.sqrt(2)) * torch.exp(gammaln(torch.tensor((df-1)/2))
-            - gammaln(torch.tensor(df/2)))
-    hypGeomVal = torch.tensor(float(mpm.hyp1f1(1/2, df/2, -lam/2)))
-    expectedValue = (gammaQRes * hypGeomVal) / sigma
-    return expectedValue
-
-
-# Inverse non-centered chi expectation.
-def inv_ncx_batch(mu, sigma):
-    """ Get the expected value of the inverse of the norm
-    of a multivariate gaussian X with mean mu and isotropic noise
-    variance sigma, for each different value of mu.
-    mu: Mean of the gaussian for each batch. nStim x nDim
-    sigma: Standard deviation of isotropic noise. Scalar
-    """
-    nStim = mu.shape[0]
-    df = mu.shape[1]
-    # lambda parameter of non-central chi distribution, squared
-    lam = np.array(torch.sum((mu/sigma)**2, dim=1))
-    gammaQRes = (1/np.sqrt(2)) * torch.exp(gammaln(torch.tensor((df-1)/2))
-            - gammaln(torch.tensor(df/2)))
-    hypGeomVal = torch.zeros(nStim)
-    for i in range(nStim):
-        hypGeomVal[i] = torch.tensor(float(mpm.hyp1f1(1/2, df/2, -lam[i]/2)))
-    expectedValue = (gammaQRes * hypGeomVal) / sigma
-    return expectedValue
-
-
-
-# Inverse non-centered chi square expectation.
-##### Check that description is ok, regarding non-centrality
-##### parameter and what distribution is actually obtained
-def inv_ncx2(df, nc):
-    """ Get the expected value of the inverse of the
-    squared norm of a non-centered gaussian
-    distribution, with degrees of freedom df, and non-centrality
-    parameter nc (||\mu||^2).
-    df: degrees of freedom
-    nc: non-centrality parameter
-    """
-    df = float(df)
-    nc = float(nc)
-    gammaQRes = 0.5 * torch.exp((gammaln(torch.tensor(df)/2-1) -
-        gammaln(torch.tensor(df)/2)))
-    hypFunRes = mpm.hyp1f1(1, df/2, -nc/2)
-    hypFunRes = torch.tensor(float(hypFunRes))
-    expectation = gammaQRes * hypFunRes
-    return expectation
-
+# Define loss functions that take as input AMA model, so
+# different outputs can be used with the same fitting functions
 
 
 #
