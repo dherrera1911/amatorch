@@ -379,9 +379,10 @@ def view_response_ellipses(resp, covariance, ctgInd, ctgVal,
         cov = covPlt[i, :, :]
         # Get ellipse parameters
         scale, eigVec = torch.linalg.eig(cov)
-        scale = torch.sqrt(scale)
+        scale = torch.sqrt(scale).real
+        eigVec = eigVec.real
         # Draw Ellipse
-        ell = patches.Ellipse(xy=(0,0), width=scale[0,0]*4, height=scale[1,0]*4,
+        ell = patches.Ellipse(xy=(0,0), width=scale[0]*4, height=scale[1]*4,
                 angle=torch.rad2deg(torch.atan2(eigVec[1, 0], eigVec[0, 0])),
                 color=sc.to_rgba(covVal[i]))
         ell.set_facecolor('none')
