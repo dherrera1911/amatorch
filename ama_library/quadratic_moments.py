@@ -23,11 +23,17 @@ from ama_library import utilities as au
 def compute_nc_parameter_batch(s, sigma):
     """ Compute the non-centrality parameter of each row
     in s, given isotropic noise with sigma standard deviation.
-    s: Stimuli dataset. nStim x nDim
-    sigma: standard deviation of noise. Sigma can be a scalar,
-    or a vector where each element of s will be divided by
-    the corresponding element (it won't be an exact non-centrality
-    parameter in this case)
+    #
+    Inputs:
+    - s: Stimuli dataset. (nStim x nDim)
+    - sigma: standard deviation of noise. Sigma can be a scalar,
+        or a vector where each element of s will be divided by
+        the corresponding element (it won't be an exact non-centrality
+        parameter in this case)
+    #
+    Outputs:
+    - nc: Non-centrality parameter of each stimulus. ||mu||^2, where
+        mu = s/sigma
     """
     sNorm = s/sigma
     # non-centrality parameter, ||\mu||^2. Make numpy array for mpm package
@@ -41,9 +47,14 @@ def compute_stimuli_hyp1f1(a, b, nc):
     """ For each element in nc (which is the non-centrality parameter
     given by ||s/sigma||**2 for stimulus s), compute the
     confluent hypergeometric function hyp1f1(a, b, -nc[i]/2)
-    a: First parameter of hyp1f1 (usually 1 or 1/2). Scalar
-    b: Second parameter of hyp1f1 (usually df/2+k, k being an integer). Scalar
-    nc: Non-centrality parameter. Vector
+    #
+    Inputs:
+    - a: First parameter of hyp1f1 (usually 1 or 1/2). (Scalar)
+    - b: Second parameter of hyp1f1 (usually df/2+k, k being an integer). (Scalar)
+    - nc: Non-centrality parameter. (Vector length df)
+    #
+    Outputs:
+    - hypFun: Value of hyp1f1 for each nc. (Vector length df)
     """
     nStim = len(nc)  # Get number of dimensions
     # Calculate hypergeometric functions (not vectorized function)
@@ -58,8 +69,14 @@ def inv_ncx(mu, sigma):
     """ Get the expected value of the inverse of the norm
     of a multivariate gaussian X with mean mu and isotropic noise
     variance sigma.
-    mu: Mean of the gaussian. length df
-    sigma: Standard deviation of isotropic noise. Scalar
+    #
+    Inputs:
+    - mu: Multidimensional mean of the gaussian. (Vector length df)
+    - sigma: Standard deviation of isotropic noise. (Scalar)
+    #
+    Outputs:
+    - expectedValue: Expected value of 1/||x|| with x~N(mu, sigma).
+        (Scalar)
     """
     df = len(mu)
     # lambda parameter of non-central chi distribution, squared
@@ -76,8 +93,13 @@ def inv_ncx_batch(mu, sigma):
     """ Get the expected value of the inverse of the norm
     of a multivariate gaussian X with mean mu and isotropic noise
     standard deviation sigma, for each different value of mu.
-    mu: Mean of the gaussian for each batch. nStim x nDim
-    sigma: Standard deviation of isotropic noise. Scalar
+    Inputs:
+    - mu: Multidimensional mean of the gaussian. (nStim x df)
+    - sigma: Standard deviation of isotropic noise. (Scalar)
+    #
+    Outputs:
+    - expectedValue: Expected value of 1/||x|| with x~N(mu, sigma).
+        (Vector length nStim)
     """
     df = mu.shape[1]
     # lambda parameter of non-central chi distribution, squared
@@ -190,18 +212,22 @@ def isotropic_ctg_secondM(s, sigma, noiseW=None, meanW=None, ctgInd=None,
     A vector of normalizing factors (normFactor) given by the filter-specific
     normalization can be passed as inputs, to simulate narrowband
     normalization.
-    %
-    s: matrix with stimuli. (nStim x nDim)
-    sigma: noise standard deviation. Scalar
-    noiseW: Weight of the noise for each row in s. Obtained
+    #
+    Inputs:
+    - s: matrix with stimuli. (nStim x nDim)
+    - sigma: noise standard deviation. Scalar
+    - noiseW: Weight of the noise for each row in s. Obtained
         as hyp1f1(1; df/2+1, -(||s/sigma||**2)/2).
         If empty, it is computed inside this function. Vector, length = nStim
-    meanW: Weight of mean outer product for each row in s. Obtained
+    - meanW: Weight of mean outer product for each row in s. Obtained
         as hyp1f1(1; df/2+2, -(||s/sigma||**2)/2).
         If empty, it is computed inside this function. Vector, length = nStim
-    ctgInd: Vector with index categories for the stimuli in i
-    normFactor: normalization factor given by filter-stimulus phase
+    - ctgInd: Vector with index categories for the stimuli in i
+    - normFactor: normalization factor given by filter-stimulus phase
         independent similarity. Either a scalar, or a vector length=nStim.
+    #
+    Output: 
+    - expectedCovs:
     """
     df = int(s.shape[1])
     nStim = s.shape[0]
@@ -303,6 +329,41 @@ def isotropic_weighted_mean_batch(s, sigma, invNormMean=None, ctgInd=None):
 def isotropic_ctg_resp_secondM(s, sigma, f, covPooling='pre-filter',
         normalization='broadband', pooledCovs=None, sAmp=None,
         ctgInd=None, noiseW=None, meanW=None):
+    """Compute analytically the second moment matrix of filter responses to
+    the noisy normalized stimuli of each category. Do this by applying the
+    quadratic form f' stimCov f, where stimCov contains the second moment
+    matrices of the stimuli in s.
+    #
+    Inputs:
+    - s: Stimuli dataset (nStim x nDim)
+    - sigma: Standard deviation of the isotropic stimulus noise (for
+        conditions were 1) normalization='broadband' and covPooling='pre-filter',
+        or 2) noiseW and meanW are not None, it is not needed, and thus ignored)
+    - f: Filters (nFilt x nDim)
+    - covPooling: String indicating whether the step of pooling covariances
+    across stimuli is done for the raw pixels covariances ('pre-filter') or
+    for the response covariances ('post-filter'). 'pre-filter' is not
+    exact, but is usually much faster. 'post-filter' is exact, but much
+    slower.
+    - pooledCovs: Pixel covariances of noisy-normalized stimuli for each
+        category. Optional argument that saves compute time for the
+        case normalization='broadband' and covPooling='pre-filter'.
+        (nClasses x nDim x nDim)
+    - sAmp: Fourier amplitude spectra of the stimuli. Optional
+        argument to save time in the cases where normalization='narrowband'
+    - ctgInd: Vector with category indices of stimuli s (length nStim).
+        If not given, all stimuli are assigned to the same class.
+    - noiseW: Vector with weights of the noise factor in the stimulus
+        covariance matrices formula. Optional parameter to save compute.
+        (length nStim)
+    - meanW: Vector with weights of the mean factor in the stimulus
+        covariance matrices formula. Optional parameter to save compute.
+        (length nStim)
+    #
+    Outputs:
+    - filterCov: Tensor with the covariance matrix of the filter responses
+        for each category. (nClasses x nFilt x nFilt)
+    """
     # 1) Housekeeping
     nStim = s.shape[0]
     # Adjust dimensions of filters to be row vectors
@@ -338,7 +399,7 @@ def isotropic_ctg_resp_secondM(s, sigma, f, covPooling='pre-filter',
         if pooledCovs is None:
             pooledCovs = isotropic_ctg_secondM(s=s, sigma=sigma,
                     noiseW=noiseW, meanW=meanW, ctgInd=ctgInd)
-        filterCov = torch.einsum('kd,cdd,md->ckm', f, pooledCovs, f)
+        filterCov = torch.einsum('kd,cdb,mb->ckm', f, pooledCovs, f)
     else:
         filterCov = torch.zeros((nClasses, nFilt, nFilt))
         ## All options other than Option 1 involve pair-specific weigthing

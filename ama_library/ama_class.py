@@ -7,6 +7,7 @@ import torch.nn.utils.parametrize as parametrize
 from torch.distributions.multivariate_normal import MultivariateNormal
 from ama_library import utilities as au
 from ama_library import quadratic_moments as qm
+import time
 
 # Define model class
 class AMA(nn.Module):
@@ -54,8 +55,7 @@ class AMA(nn.Module):
         self.ctgVal = ctgVal
         # Make filter noise matrix (##IMPLEMENT GENERAL COVARIANCE LATER##)
         self.respNoiseVar = torch.tensor(respNoiseVar)
-        self.respNoiseCov = torch.eye(self.nFiltAll).repeat(self.nClasses, 1, 1) \
-                * self.respNoiseVar
+        self.respNoiseCov = torch.eye(self.nFiltAll) * self.respNoiseVar
         ### Compute the conditional statistics of the stimuli
         self.noiseType = noiseType
         if self.noiseType == 'isotropic':
@@ -94,7 +94,8 @@ class AMA(nn.Module):
             # Convert second moment to covariance
             self.respCovNoiseless = qm.secondM_2_cov(secondM=respSecondM,
                     mean=self.respMean)
-        self.respCov = self.respCovNoiseless + self.respNoiseCov
+        self.respCov = self.respCovNoiseless + \
+            self.respNoiseCov.repeat(self.nClasses, 1, 1)
         # Add a noise generator with the input noise characteristics and nother
         # for the filter noise
         pixelCov = torch.eye(self.nDim) * self.pixelSigma**2
@@ -169,8 +170,7 @@ class AMA(nn.Module):
         self.nFilt = self.f.shape[0]
         self.nFiltAll = fAll.shape[0]
         # If new filters were added, expand the response noise covariance
-        self.respNoiseCov = torch.eye(self.nFiltAll).repeat(self.nClasses, 1, 1) \
-                * self.respNoiseVar
+        self.respNoiseCov = torch.eye(self.nFiltAll) * self.respNoiseVar
         # Update covariances, size nClasses*nFilt*nFilt
         if self.filtNorm == 'narrowband' and sAmp is None:
             sAmp = qm.compute_amplitude_spectrum(s=sAll)
@@ -209,7 +209,8 @@ class AMA(nn.Module):
         else:
             self.respCovNoiseless = qm.secondM_2_cov(respSecondM, self.respMean)
         # Add response noise to the stimulus-induced variability of responses
-        self.respCov = self.respCovNoiseless + self.respNoiseCov
+        self.respCov = self.respCovNoiseless + \
+            self.respNoiseCov.repeat(self.nClasses, 1, 1)
 
 
     def assign_filter_values(self, fNew, sAll, ctgInd, sAmp=None,
@@ -296,7 +297,7 @@ class AMA(nn.Module):
     #########################
 
 
-    def get_responses(self, s, addStimNoise=False):
+    def get_responses(self, s, addStimNoise=True, addRespNoise=True):
         """ Compute the responses of the filters to each stimulus in s. Note,
         stimuli are normalized to unit norm. If requested, noise is also
         added.
@@ -320,11 +321,50 @@ class AMA(nn.Module):
         # 3) Append fixed and trainable filters together
         fAll = self.fixed_and_trainable_filters()
         # 4) Apply filters to the stimuli
-        resp = torch.einsum('fd,nd->fn', fAll, s)
+        resp = torch.einsum('fd,nd->nf', fAll, s)
+        # 2) If requested, add response noise
+        if addRespNoise:
+            resp = resp + self.respNoiseGen.rsample([nStim])
         return resp
 
 
-    def get_posteriors(self, s, addStimNoise=False, addRespNoise=False):
+    def get_log_likelihood(self, s, addStimNoise=True, addRespNoise=True):
+        """ Compute the class posteriors for each stimulus in s. Note,
+        stimuli are normalized to unit norm. If requested, noise is also
+        added.
+        Inputs:
+        - s: stimulus matrix for which to compute posteriors. (nStim x nDim)
+        - addStimNoise: Logical that indicates whether to add noise to
+            the input stimuli s. Added noise has the characteristics stored
+            in the class.
+        - addRespNoise: Logical that indicates whether to add noise to the
+            filter responses.
+        Output:
+        - log_likelihood: Matrix with the log-likelihood function across
+        classes for each stimulus. (nStim x nClasses)
+        """
+        if s.dim() == 1:
+            s = s.unsqueeze(0)
+        nStim = s.shape[0]
+        # 1) Get filter responses
+        resp = self.get_responses(s, addStimNoise=addStimNoise,
+                addRespNoise=addRespNoise)
+        # 2) Difference between responses and class means. (nStim x nClasses x nFilt)
+        respDiff = resp.unsqueeze(1).repeat(1, self.nClasses, 1) - \
+                self.respMean.unsqueeze(0).repeat(nStim, 1, 1)
+        ## Get the log-likelihood of each class
+        # 3) Quadratic component of log-likelihood (with negative sign)
+        quadratics = -0.5 * torch.einsum('ncd,cdb,ncb->nc', respDiff,
+                self.respCov.inverse(), respDiff)
+        # 4) Constant term of log-likelihood
+        llConst = -0.5 * self.nFiltAll * torch.log(2*torch.tensor(torch.pi)) - \
+            0.5 * torch.logdet(self.respCov)
+        # 5) Add quadratics and constants to get log-likelihood
+        log_likelihood = quadratics + llConst.repeat(nStim, 1)
+        return log_likelihood
+
+
+    def get_posteriors(self, s, addStimNoise=True, addRespNoise=True):
         """ Compute the class posteriors for each stimulus in s. Note,
         stimuli are normalized to unit norm. If requested, noise is also
         added.
@@ -341,32 +381,21 @@ class AMA(nn.Module):
         """
         if s.dim() == 1:
             s = s.unsqueeze(0)
-        nStim = s.shape[0]
-        # 1) Get filter responses
-        resp = self.get_responses(s, addStimNoise=addStimNoise)
-        # 2) If requested, add response noise
-        if addRespNoise:
-            resp = resp + self.respNoiseGen.rsample([nStim])
-        # 3) Difference between responses and class means. (nStim x nClasses x nFilt)
-        respDiff = resp.unsqueeze(1).repeat(1, self.nClasses, 1) - \
-                self.respMean.unsqueeze(0).repeat(nStim, 1, 1)
-        ## Get the log-likelihood of each class
-        # 4) Quadratic component of log-likelihood (with negative sign)
-        quadratics = -0.5 * torch.einsum('nck,cdb,ncm->nc', respDiff,
-                self.respCovs.inverse(), respDiff)
-        # 5) Constant term of log-likelihood
-        llConst = -0.5 * self.nFiltAll * torch.log(2*torch.tensor(torch.pi)) - \
-            0.5 * torch.logdet(self.respCovs)
-        # 6) Add quadratics and constants and softmax to get posterior probs
-        posteriors = F.softmax(quadratics + llConst.repeat(nStim, 1), dim=1)
+        # 1) Get log-likelihoods
+        log_likelihoods = self.get_log_likelihood(s, addStimNoise=addStimNoise,
+                addRespNoise=addRespNoise)
+        # 2) Add quadratics and constants and softmax to get posterior probs
+        posteriors = F.softmax(log_likelihoods, dim=1)
         return posteriors
 
 
-    def get_estimates(self, s, method4est='MAP'):
+    def get_estimates(self, s, method4est='MAP', addStimNoise=True,
+            addRespNoise=True):
         """ Compute latent variable estimates for each stimulus in s.
         Input: s (nStim x nDim) is stimulus matrix
         Output: estimates (nStim). Vector with the estimate for each stimulus """
-        posteriors = self.get_posteriors(s).double()
+        posteriors = self.get_posteriors(s, addStimNoise=addStimNoise,
+                addRespNoise=addRespNoise)
         if method4est=='MAP':
             # Get maximum posteriors indices of each stim, and its value
             (a, estimateInd) = torch.max(posteriors, dim=1)
