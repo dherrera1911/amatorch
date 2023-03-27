@@ -378,7 +378,7 @@ def view_response_ellipses(resp, covariance, ctgInd, ctgVal,
     for i in range(covPlt.shape[0]):
         cov = covPlt[i, :, :]
         # Get ellipse parameters
-        scale, eigVec = torch.linalg.eig(cov, eigenvectors=True)
+        scale, eigVec = torch.linalg.eig(cov)
         scale = torch.sqrt(scale)
         # Draw Ellipse
         ell = patches.Ellipse(xy=(0,0), width=scale[0,0]*4, height=scale[1,0]*4,
