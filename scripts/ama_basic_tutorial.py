@@ -108,8 +108,8 @@ from torch.utils.data import TensorDataset, DataLoader
 
 # <codecell>
 ##### IMPORT DISPARITY DATA FROM BURGE LAB GITHUB
-!mkdir data
-!wget -O ./data/ama_dsp_noiseless.mat https://www.dropbox.com/s/eec1917swc124qd/ama_dsp_noiseless.mat?dl=0
+#!mkdir data
+#!wget -O ./data/ama_dsp_noiseless.mat https://www.dropbox.com/s/eec1917swc124qd/ama_dsp_noiseless.mat?dl=0
 
 # <codecell>
 ##############
@@ -162,6 +162,7 @@ print(f'ctgVal ranges between {min(ctgVal)} and {max(ctgVal)} arcmin')
 ##############
 #### PLOT RANDOM STIMULUS
 ##############
+plt.rcParams.update({'font.size': 15})  # increase default font size
 arcMin = np.linspace(start=-30, stop=30, num=nPixels) # x axis values
 randomInd = np.random.randint(s.shape[0])  # Select a random stimulus
 # Get the disparity value
@@ -176,7 +177,7 @@ plt.xlabel('Visual field (arcmin)')
 plt.title(f'Stimulus {randomInd}, with j={stimCategoryInd}, $X_j$={stimDisparity} arc min disparity')
 plt.legend()
 fig = plt.gcf()
-fig.set_size_inches(10,10)
+fig.set_size_inches(7,5)
 plt.show()
 
 
@@ -196,7 +197,7 @@ plt.show()
 # We download and import the library below.
 
 # <codecell>
-# First we need to download and install geotorch
+# FIRST WE NEED TO DOWNLOAD AND INSTALL GEOTORCH
 #!pip install geotorch
 #import geotorch
 
@@ -262,10 +263,10 @@ ama = cl.AMA(sAll=s, ctgInd=ctgInd, nFilt=nFilt, respNoiseVar=respNoiseVar,
 # * `nClasses`: Number of latent variable levels ($k$ in the equations)
 # * `f`: Filters. Initialized to random variables, these are the trainable parameters, and are constrained to have unit norm. ($\in \mathbb{R}^{n \times d}$).
 # * `ctgVal`: Values of the latent variable ($X_1, X_2, ..., X_k$). ($\in \mathbb{R}^{k}$).
-# * `stimCov`: Covariance matrices for the noisy normalized stimuli $\mathbf{c}$ of each class $X=X_j$. ($\mathbf{\Psi} \in \mathbb{R}^{k \times d \times d}$).
-# * `stimMean`: Means for the noisy-normalized stimuli $\mathbf{c}$ of each class. ($\mathbf{mu} \in \mathbb{R}^{k \times d}$)
-# * `respCov`: Covariance matrices for the noisy responses $\mathbf{R}_{i,j}$ (including stimulus variability and filter noise). ($\in \mathbb{R}^{k \times n \times n}$. 
-# * `respMean`: Means for the noisy responses $\mathbf{R}_{i,j}$. ($\in \mathbb{R}^{k \times n}$.
+# * `stimCov`: Covariance matrices for the noisy normalized stimuli $\mathbf{c}$ of each class $X=X_j$. ($\in \mathbb{R}^{k \times d \times d}$).
+# * `stimMean`: Means for the noisy-normalized stimuli $\mathbf{c}$ of each class. ($\in \mathbb{R}^{k \times d}$)
+# * `respCov`: Covariance matrices for the noisy responses $\mathbf{R}_{i,j}$ (including stimulus variability and filter noise). ($\in \mathbb{R}^{k \times n \times n}$). 
+# * `respMean`: Means for the noisy responses $\mathbf{R}_{i,j}$. ($\in \mathbb{R}^{k \times n}$).
 #
 # Let's verify that the statistics present in the AMA model match
 # what we would expect.
@@ -291,7 +292,7 @@ plt.title(f'Filter 2, random init')
 plt.ylim(-0.4, 0.4)
 plt.legend()
 fig = plt.gcf()
-fig.set_size_inches(10,10)
+fig.set_size_inches(11,5)
 plt.show()
 
 # <codecell>
@@ -385,7 +386,7 @@ plt.show()
 # response $\mathbf{R}_i$ is then given by the following formula:
 # 
 # \begin{equation}
-#   \P(X=X_j | \mathbf{R}_i) = \frac{P(\mathbf{R}_i | X=X_j)}{\sum_{i=1}^{i=k}
+#   P(X=X_j | \mathbf{R}_i) = \frac{P(\mathbf{R}_i | X=X_j)}{\sum_{i=1}^{i=k}
 #           P(\mathbf{R}_i | X=X_i)}
 # \end{equation}
 # 
@@ -421,8 +422,14 @@ ctgIndVis = ctgInd[visInds]
 respVis = ama.get_responses(s=sVis, addStimNoise=True, addRespNoise=True)
 respVis = respVis.detach()
 # Plot responses and the ama-estimated ellipses
+fig, ax = plt.subplots()
 au.view_response_ellipses(resp=respVis, covariance=ama.respCov.detach(),
-        ctgInd=ctgIndVis, ctgVal=ctgVal, plotFilt=torch.tensor([0,1]))
+        ctgInd=ctgIndVis, ctgVal=ctgVal, plotFilt=torch.tensor([0,1]),
+        fig=fig, ax=ax)
+cax = plt.gca().collections[-1].colorbar
+cax.set_label('Disparity')
+fig.set_size_inches(10,8)
+plt.show()
 
 
 # <markdowncell>

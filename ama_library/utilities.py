@@ -345,7 +345,7 @@ def subsample_covariance(covariance, classInd, filtInd):
 
 
 def view_response_ellipses(resp, covariance, ctgInd, ctgVal,
-        plotFilt=torch.tensor([0,1]), ax=None):
+        plotFilt=torch.tensor([0,1]), fig=None, ax=None):
     """Do a 2D scatter plot of a set of responses, and draw ellipses to
     show the 2 SD of the Gaussian distribution.
     Inputs:
@@ -367,11 +367,11 @@ def view_response_ellipses(resp, covariance, ctgInd, ctgVal,
     # Category values associated with the covariances
     covVal = ctgVal[ctgInd.unique()]
     # Plot responses and ellipses
-    #if ax is None:
-    fig, ax = plt.subplots()
-    #    showPlot = True
-    #else:
-    #    showPlot = False
+    if ax is None:
+        fig, ax = plt.subplots()
+        showPlot = True
+    else:
+        showPlot = False
     sc = ax.scatter(resp[:, plotFilt[0]], resp[:, plotFilt[1]],
             c=respVal, cmap='viridis', s=5)
     # create ellipses for each covariance matrix
@@ -388,9 +388,9 @@ def view_response_ellipses(resp, covariance, ctgInd, ctgVal,
         ell.set_facecolor('none')
         ell.set_linewidth(2)
         ax.add_artist(ell)
-    plt.colorbar(sc)
+    fig.colorbar(sc)
     plt.xlabel(f'Filter {plotFilt[0]}')
     plt.ylabel(f'Filter {plotFilt[1]}')
-    #if showPlot:
-    plt.show()
+    if showPlot:
+        plt.show()
 
