@@ -1,6 +1,6 @@
 # <markdowncell>
 
-# #Disparity estimation and effect of batch size
+# # Disparity estimation and effect of batch size
 # 
 # Train AMA on the task of disparity estimation. Compare
 # the filters learned with different batch sizes, as well
@@ -19,24 +19,26 @@ import torch.nn.functional as F
 from torch.utils.data import TensorDataset, DataLoader
 
 # <codecell>
-##### COMMENT THIS CELL WHEN USING GOOGLE COLAB
-from ama_library import *
-
-# <codecell>
-#### UNCOMMENT THIS CELL FOR GOOGLE COLAB EXECUTION
+##UNCOMMENT_FOR_COLAB_START##
 #!pip install geotorch
 #import geotorch
 #!pip install git+https://github.com/dherrera1911/accuracy_maximization_analysis.git
-#from ama_library import *
 #!mkdir data
-#!wget -O ./data/AMAdataDisparity.mat https://github.com/burgelab/AMA/blob/master/AMAdataDisparity.mat?raw=true
+#!wget -O ./data/ama_dsp_noiseless.mat https://www.dropbox.com/s/eec1917swc124qd/ama_dsp_noiseless.mat?dl=0
+##UNCOMMENT_FOR_COLAB_END##
+
+
+# <codecell>
+import ama_library.ama_class as cl
+import ama_library.utilities as au
+
 
 # <codecell>
 ##############
 #### LOAD AMA DATA
 ##############
 # Load ama struct from .mat file into Python
-data = spio.loadmat('./data/AMAdataDisparity.mat')
+data = spio.loadmat('./data/ama_dsp_noiseless.mat')
 # Extract contrast normalized, noisy stimulus
 s = data.get("s")
 s = torch.from_numpy(s)
@@ -51,26 +53,22 @@ ctgInd = ctgInd.type(torch.LongTensor)  # convert to torch integer
 # Extract the values of the latent variable
 ctgVal = data.get("X")
 ctgVal = torch.from_numpy(ctgVal)
-ctgVal = ctgVal.flatten()
+ctgVal = ctgVal.flatten().float()
 nPixels = int(s.shape[1]/2)
-# Extract Matlab trained filters
-fOri = data.get("f")
-fOri = torch.from_numpy(fOri)
-fOri = fOri.transpose(0,1)
-# Extract original noise parameters
-filterSigmaOri = data.get("var0").flatten()
-maxRespOri = data.get("rMax").flatten()
+
 
 # <codecell>
 ##############
 #### SET TRAINING PARAMETERS
 ##############
 nFilt = 2   # Number of filters to use
-filterSigma = float(filterSigmaOri / maxRespOri**2)     # Variance of filter responses
+pixelNoiseVar = 0.001  # Variance of pixel noise
+respNoiseVar = 0.003  # Variance of filter responses
 nEpochsBase = 150
 lrGamma = 0.3   # multiplication factor for lr decay
-lossFun = cross_entropy_loss()
+lossFun = au.cross_entropy_loss()
 learningRate = 0.01
+
 
 # <codecell>
 ##############
@@ -90,31 +88,33 @@ for bs in range(nBatchSizes):
     lrStepSize = int(nEpochs/3)
     batchSize = int(batchSizeVec[bs])
     # Initialize model with random filters
-    amaPy = AMA(sAll=s, ctgInd=ctgInd, nFilt=nFilt, filterSigma=filterSigma,
-            ctgVal=ctgVal)
+    ama = cl.AMA(sAll=s, ctgInd=ctgInd, nFilt=nFilt, respNoiseVar=respNoiseVar,
+            pixelCov=pixelNoiseVar, ctgVal=ctgVal,
+            respCovPooling='pre-filter', filtNorm='broadband')
     # Put data into Torch data loader tools
     trainDataset = TensorDataset(s, ctgInd)
     # Batch loading and other utilities 
     trainDataLoader = DataLoader(trainDataset, batch_size=batchSize,
             shuffle=True)
     # Set up optimizer
-    opt = torch.optim.Adam(amaPy.parameters(), lr=learningRate)  # Adam
+    opt = torch.optim.Adam(ama.parameters(), lr=learningRate)  # Adam
     # Make learning rate scheduler
     scheduler = torch.optim.lr_scheduler.StepLR(opt, step_size=lrStepSize,
             gamma=lrGamma)
-    #opt = torch.optim.SGD(amaPy.parameters(), lr=0.03)  # SGD
+    #opt = torch.optim.SGD(ama.parameters(), lr=0.03)  # SGD
     # fit model
-    loss, elapsedTimes = fit(nEpochs=nEpochs, model=amaPy,
+    loss, elapsedTimes = au.fit(nEpochs=nEpochs, model=ama,
             trainDataLoader=trainDataLoader, lossFun=lossFun, opt=opt,
-            scheduler=scheduler)
+            sAll=s, ctgInd=ctgInd, scheduler=scheduler)
     # Store ama information into dictionary
     filterDict["batchSize"].append(batchSize)
-    filterDict["filter"].append(amaPy.f.detach())
+    filterDict["filter"].append(ama.f.detach())
     filterDict["loss"].append(loss)
     filterDict["time"].append(elapsedTimes)
-    filterDict["estimates"].append(amaPy.get_estimates(s))
+    filterDict["estimates"].append(ama.get_estimates(s))
     filterDict["estimateStats"].append(
-            get_estimate_statistics(filterDict["estimates"][bs], ctgInd))
+            au.get_estimate_statistics(filterDict["estimates"][bs], ctgInd))
+
 
 # <codecell>
 # Plot the first 2 filters for each batch size
@@ -125,6 +125,7 @@ for bs in range(nBatchSizes):
         fPlot = filterDict["filter"][bs][nf,:]
         view_filters_bino(f=fPlot, x=x, title='size: %i'  %batchSizeVec[bs])
 plt.show()
+
 
 # <codecell>
 # Plot the learning curve for each batch size
@@ -154,5 +155,4 @@ for bs in range(nBatchSizes):
         plt.yticks([])
         plt.ylabel('')
 plt.show()
-
 
