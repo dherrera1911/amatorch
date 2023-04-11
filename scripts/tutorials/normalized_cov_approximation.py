@@ -72,36 +72,24 @@ import mpmath as mpm  # Important to use mpmath for hyp1f1, scipy blows up
 import torch
 from torch.distributions.multivariate_normal import MultivariateNormal
 
+# <codecell>
+##UNCOMMENT_FOR_COLAB_START##
+#!pip install geotorch
+#import geotorch
+#!pip install git+https://github.com/dherrera1911/accuracy_maximization_analysis.git
+#!mkdir data
+#!wget -O ./data/ama_dsp_noiseless.mat https://www.dropbox.com/s/eec1917swc124qd/ama_dsp_noiseless.mat?dl=0
+##UNCOMMENT_FOR_COLAB_END##
+
+# <codecell>
+# The module quadratic_moments of the ama_library contains
+# the functions to compute moments of quadratic forms
+import ama_library.quadratic_moments as qm
+
 
 # <codecell>
 ##############
-#### DEFINE THE FUNCTION TO COMPUTE THE SECOND MOMENT OF
-#### ISOTROPIC NOISE, BROADBAND NORM
-##############
-def isotropic_broadb_sm(s, sigma):
-    """ Estimate the second moment of a noisy normalized stimulus,
-    with isotropic white noise and broadband normalization.
-    s: Stimulus mean. shape nDim
-    sigma: Standar deviation of the isotropic noise
-    """
-    df = int(s.shape[0])  # Get number of dimensions
-    sNorm = s/sigma  # Standardize the stimulus dividing it by sigma (\mu)
-    nc = float(torch.sum(sNorm**2))  # non-centrality parameter, ||\mu||^2
-    # Hypergeometric function for the term with the identity
-    hypFunNoise = torch.tensor(float(mpm.hyp1f1(1, df/2+1, -nc/2)))
-    # Hypergeometric function for the term with the mean
-    hypFunMean = torch.tensor(float(mpm.hyp1f1(1, df/2+2, -nc/2))) 
-    # Get the outer product of the normalized stimulus, and multiply by weight
-    meanTerm = torch.einsum('a,b->ab', sNorm, sNorm) * 1/(df+2) * hypFunMean
-    # Multiply the identity matrix by weighting term 
-    noiseTerm = torch.eye(df) * 1/df * hypFunNoise
-    # Add the two terms
-    expectedCov = (meanTerm + noiseTerm)
-    return expectedCov
-
-# <codecell>
-##############
-#### COMPUTE ANALYTIC AND EMPIRICAL SECOND MOMENTS
+#### COMPUTE EMPIRICAL AND ANALYTIC SECOND MOMENTS
 ##############
 # All combinations of dimensions and noise below will be used
 nDim = torch.tensor([20, 50, 200]) # Vector with number of dimensions to use
@@ -125,7 +113,7 @@ for d in range(len(nDim)):
         smDict['nDim'][ii] = df
         smDict['sigma'][ii] = sigma
         ### Calculate analytic second moment:
-        smAnalytic = isotropic_broadb_sm(s, sigma)
+        smAnalytic = qm.isotropic_individual_stim_secondM(s=s, sigma=sigma)
         ### Calculate empirical reference distribution:
         # Initialize distribution of samples
         Cov = torch.eye(df)*(sigma**2)
@@ -221,7 +209,7 @@ ind = np.flatnonzero(ind)[0]
 # Plot the matrices
 plt.title('Second moment matrices')
 plt.subplot(1,3,1)
-plt.imshow(smDict['smAnalytic'][ind])
+plt.imshow(smDict['smAnalytic'][ind][0,:,:])
 plt.title(f'Analytic', fontsize=11)
 plt.subplot(1,3,2)
 plt.title(f'Empirical ref', fontsize=11)
@@ -342,7 +330,7 @@ def make_cov(covType, sigmaScale, df, decay=1, baseline=0):
             randMat = torch.randn(int(df), int(df))  # Make random matrix
             covRand = torch.cov(randMat)  # Turn it into positive-semidefinite matrix
             diagW = torch.rand(1)  # Sample a relative weight of diagonal-off diagonal elements
-            sigmaCov = ((1-diagW) * covRand + diagW * torch.diag(covRand.diag())) * sigma
+            sigmaCov = ((1-diagW) * covRand + diagW * torch.diag(covRand.diag())) * sigmaScale
             eigVals = torch.real(torch.linalg.eigvals(sigmaCov))
             isPD = all(eigVals > 0)
     if covType=='diagonal':
@@ -559,6 +547,7 @@ fig.set_size_inches(14,12)
 plt.show()
 
 
+##UNCOMMENT_FOR_COLAB_START##
 
 # <markdowncell>
 #
@@ -604,21 +593,27 @@ plt.show()
 #########################
 # IMPORT PACKAGES AND AMA UTILITIES
 #########################
+import numpy as np
+import matplotlib.pyplot as plt
+import mpmath as mpm  # Important to use mpmath for hyp1f1, scipy blows up
+import torch
+from torch.distributions.multivariate_normal import MultivariateNormal
+
 import scipy.io as spio
 import time
 import scipy as sp
 
 # <codecell>
 # COMMENT THIS CELL FOR GOOGLE COLAB EXECUTION
-#import ama_library.ama_utilities as au
+import ama_library.utilities as au
 
 # <codecell>
 #### UNCOMMENT THIS CELL FOR GOOGLE COLAB EXECUTION
-!pip install geotorch
-import geotorch
-!pip install git+https://github.com/dherrera1911/accuracy_maximization_analysis.git
-import ama_library.ama_utilities as au
-!wget -O ./data/amaInput_12dir_3speed_0stdDsp_train.mat https://drive.google.com/file/d/1m7BXFZFe0ppsHhURFbhqaCqHR3vTbD6V/view?usp=sharing
+#!pip install geotorch
+#import geotorch
+#!pip install git+https://github.com/dherrera1911/accuracy_maximization_analysis.git
+#import ama_library.ama_utilities as au
+#!wget -O ./data/amaInput_12dir_3speed_0stdDsp_train.mat https://drive.google.com/file/d/1m7BXFZFe0ppsHhURFbhqaCqHR3vTbD6V/view?usp=sharing
 
 # <codecell>
 #########################
@@ -888,3 +883,5 @@ plt.show()
 #    plt.imshow(lowEmpCov[ctg])
 #plt.show()
 #
+
+##UNCOMMENT_FOR_COLAB_END##

@@ -1,7 +1,7 @@
 # <markdowncell>
 
 # # Disparity estimation and effect of batch size
-# 
+#
 # Train AMA on the task of disparity estimation. Compare
 # the filters learned with different batch sizes, as well
 # as model performance and training time
@@ -14,8 +14,6 @@ import scipy.io as spio
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
-import torch.nn as nn
-import torch.nn.functional as F
 from torch.utils.data import TensorDataset, DataLoader
 
 # <codecell>
@@ -26,7 +24,6 @@ from torch.utils.data import TensorDataset, DataLoader
 #!mkdir data
 #!wget -O ./data/ama_dsp_noiseless.mat https://www.dropbox.com/s/eec1917swc124qd/ama_dsp_noiseless.mat?dl=0
 ##UNCOMMENT_FOR_COLAB_END##
-
 
 # <codecell>
 import ama_library.ama_class as cl
@@ -123,20 +120,24 @@ for bs in range(nBatchSizes):
     for nf in range(nFilt):
         plt.subplot(nFilt, nBatchSizes, bs+1+nBatchSizes*nf)
         fPlot = filterDict["filter"][bs][nf,:]
-        view_filters_bino(f=fPlot, x=x, title='size: %i'  %batchSizeVec[bs])
+        au.view_1D_bino_image(inputVec=fPlot, x=x,
+                title='size: %i'  %batchSizeVec[bs])
 plt.show()
 
 
 # <codecell>
 # Plot the learning curve for each batch size
-minLoss = 2.75 # Lower limit of y axis
+minLoss = np.min([np.min(arr) for arr in filterDict["loss"]])
+maxLoss = np.max([np.max(arr) for arr in filterDict["loss"]])
+margin = (maxLoss - minLoss)*0.05
+
 maxTime = 5   # Upper limit of X axis in the time plot
 for bs in range(nBatchSizes):
     plt.subplot(2, nBatchSizes, bs+1)
     loss = filterDict["loss"][bs]
     time = filterDict["time"][bs]
-    plt.plot(time, np.log(loss))
-    plt.ylim(np.log(minLoss), np.log(2.98))
+    plt.plot(time, loss)
+    plt.ylim(minLoss-margin, maxLoss+margin)
     plt.xlim(0, maxTime)
     plt.ylabel('Cross entropy loss')
     plt.xlabel('Time (s)')
@@ -148,7 +149,7 @@ for bs in range(nBatchSizes):
     loss = filterDict["loss"][bs]
     epoch = np.arange(loss.size)
     plt.plot(epoch, loss)
-    plt.ylim(minLoss, 2.98)
+    plt.ylim(minLoss-margin, maxLoss+margin)
     plt.ylabel('Cross entropy loss')
     plt.xlabel('Epoch')
     if bs>0:

@@ -15,12 +15,12 @@ class AMA(nn.Module):
             pixelCov=torch.tensor(0), noiseType='isotropic', ctgVal=None,
             filtNorm='broadband', respCovPooling='post-filter'):
         """ AMA model object.
-        Inputs:
+        Arguments:
         sAll: Input stimuli. (nStim x nDim)
         ctgInd: Category index of each stimulus. (nStim)
         nFilt: Number of filters to train
         respNoiseVar: Variance of filter response noise. Scalar
-        pixelCov: Variance the noise added to input stimuli.
+        pixelCov: Variance of the noise added to input stimuli.
         noiseType: String indicating type of noise. 'isotropic' only supported
             option at the moment
         ctgVal: Value of the latent variable corresponding to each category.
@@ -33,6 +33,7 @@ class AMA(nn.Module):
             exact results. Defults to 'post-filter'
         """
         super().__init__()
+        print('Initializing AMA')
         ### Make initial random filters
         fInit = torch.randn(nFilt, sAll.shape[1])
         fInit = F.normalize(fInit, p=2, dim=1)
@@ -60,31 +61,49 @@ class AMA(nn.Module):
         self.noiseType = noiseType
         if self.noiseType == 'isotropic':
             # Precompute some parameters
+            print('Computing weights for quadratic moments ...')
+            start = time.time()
             self.set_isotropic_params(sAll=sAll,
                     pixelSigma=torch.sqrt(torch.tensor(pixelCov)))
+            end = time.time()
+            print(f'Done in {end-start} seconds')
             # Compute normalized noisy stimuli means
+            print('Computing normalized noisy stimuli means ...')
+            start = time.time()
             self.stimMean = qm.isotropic_weighted_mean_batch(s=sAll,
                     sigma=self.pixelSigma, invNormMean=self.invNormMean,
                     ctgInd=ctgInd)
-#            # Compute normalized noisy stimuli covs
+            end = time.time()
+            print(f'Done in {end-start} seconds')
+            # Compute normalized noisy stimuli covs
+            print('Computing normalized noisy stimuli covariances ...')
+            start = time.time()
             stimSecondM= qm.isotropic_ctg_secondM(s=sAll,
                     sigma=self.pixelSigma, ctgInd=ctgInd,
                     noiseW=self.smNoiseW, meanW=self.smMeanW)
             self.stimCov = qm.secondM_2_cov(secondM=stimSecondM,
                     mean=self.stimMean)
+            end = time.time()
+            print(f'Done in {end-start} seconds')
             # Compute the second moment matrix of filter responses
             if self.filtNorm == 'narrowband':
                 sAmp = qm.compute_amplitude_spectrum(s=sAll)
             else:
                 sAmp = None
             # Compute the mean of the responses
+            print('Computing response means ...')
+            start = time.time()
             self.respMean = qm.isotropic_ctg_resp_mean(s=sAll,
                     sigma=self.pixelSigma, f=self.f,
                     normalization=self.filtNorm,
                     ctgInd=ctgInd, sAmp=sAmp,
                     invNormMean=self.invNormMean,
                     classMean=self.stimMean)
+            end = time.time()
+            print(f'Done in {end-start} seconds')
             # Compute the covariance of the responses
+            print('Computing response covariances ...')
+            start = time.time()
             respSecondM = qm.isotropic_ctg_resp_secondM(s=sAll,
                     sigma=self.pixelSigma, f=self.f,
                     covPooling=self.respCovPooling,
@@ -94,6 +113,8 @@ class AMA(nn.Module):
             # Convert second moment to covariance
             self.respCovNoiseless = qm.secondM_2_cov(secondM=respSecondM,
                     mean=self.respMean)
+            end = time.time()
+            print(f'Done in {end-start} seconds')
         self.respCov = self.respCovNoiseless + \
             self.respNoiseCov.repeat(self.nClasses, 1, 1)
         # Add a noise generator with the input noise characteristics and nother
@@ -115,6 +136,7 @@ class AMA(nn.Module):
     def fixed_and_trainable_filters(self):
         """ Return a tensor with all the filters (fixed and trainable).
         Fixed filters are first.
+        #
         Output:
         - fAll: Tensor with all filters. (nFilt x nDim)
         """
@@ -125,7 +147,7 @@ class AMA(nn.Module):
         """ If stimulus noise is isotropic, set some parameters
         related to stimulus noise, and precompute quantities that will
         save compute time.
-        Inputs:
+        Arguments:
         - sAll: Stimulus dataset used to compute statistics
         - pixelSigma: Standard deviation of input noise
         """
@@ -153,7 +175,7 @@ class AMA(nn.Module):
             sameAsInit=True):
         """ Update (in place) the conditional response means and covariances
         to match the current object filters
-        Inputs:
+        Arguments:
         - sAll: Stimulus dataset to use for response updating. Ideally, it is
          the same dataset used to initialize the model, for which there are
          precomputed quantities. (nStim x nDim)
@@ -197,7 +219,7 @@ class AMA(nn.Module):
                     ctgInd=ctgInd, noiseW=noiseW, meanW=meanW)
             # Compute the mean of the responses
             self.respMean = qm.isotropic_ctg_resp_mean(s=sAll,
-                    sigma=self.pixelSigma, f=self.f,
+                    sigma=self.pixelSigma, f=fAll,
                     normalization=self.filtNorm,
                     ctgInd=ctgInd, sAmp=sAmp,
                     invNormMean=invNormMean,
@@ -211,13 +233,15 @@ class AMA(nn.Module):
         # Add response noise to the stimulus-induced variability of responses
         self.respCov = self.respCovNoiseless + \
             self.respNoiseCov.repeat(self.nClasses, 1, 1)
+        self.respNoiseGen = MultivariateNormal(loc=torch.zeros(self.nFiltAll),
+                covariance_matrix=self.respNoiseCov)
 
 
     def assign_filter_values(self, fNew, sAll, ctgInd, sAmp=None,
             sameAsInit=True):
         """ Overwrite the values to the model filters. Updates model
         parameters and statistics accordingly.
-        Inputs:
+        Arguments:
         - fNew: Matrix with the new filters as rows. The new number of filters
             doesn't need to match the old number. (nFilt x nDim)
         - Rest of inputs, sAll, ctgInd, sAmp, sameAsInit, are as explained
@@ -254,8 +278,8 @@ class AMA(nn.Module):
         the trainable filters to random values.
         Input parameters are as in update_response_statistics()
         """
-        f2Fix = self.f.detach().clone()  # Copy trainable filters, to fix
-        self.fFixed = torch.cat((self.fFixed.clone(), f2Fix))  # Append to fixed filters
+        newFix = self.fixed_and_trainable_filters().detach().clone()
+        self.fFixed = newFix
         # reinitialize_trainable updates statistics
         self.reinitialize_trainable(sAll=sAll, ctgInd=ctgInd, sAmp=sAmp,
                 sameAsInit=sameAsInit)
@@ -263,7 +287,7 @@ class AMA(nn.Module):
 
     def add_fixed_filters(self, fFixed, sAll, ctgInd, sAmp=None, sameAsInit=True):
         """ Add new filters to the model, that are not trainable parameters.
-        Inputs:
+        Arguments:
         - fFixed: Te tensor with the new filters. (nFilt x nDim)
         - Rest of input parameters are as in update_response_statistics()
         """
@@ -272,11 +296,11 @@ class AMA(nn.Module):
                 sAmp=sAmp, sameAsInit=True)
 
 
-    def add_new_filters(self, nFiltNew, fNew, sAll, ctgInd, sAmp=None,
+    def add_new_filters(self, nFiltNew, sAll, ctgInd, sAmp=None,
             sameAsInit=True):
         """ Add new, random filters to the filters already contained in
         the model. Adapt model statistics and parameters accordingly.
-        Inputs:
+        Arguments:
         - nFiltNew: number of new fiters to add
         - Rest of inputs, sAll, ctgInd, sAmp, sameAsInit, are as explained
         in update_response_statistics()
@@ -296,12 +320,11 @@ class AMA(nn.Module):
     #########################
     #########################
 
-
     def get_responses(self, s, addStimNoise=True, addRespNoise=True):
         """ Compute the responses of the filters to each stimulus in s. Note,
         stimuli are normalized to unit norm. If requested, noise is also
         added.
-        Inputs:
+        Arguments:
         - s: stimulus matrix for which to compute posteriors. (nStim x nDim)
         - addStimNoise: Logical that indicates whether to add noise to the input
             stimuli s. Added noise has the characteristics stored in the class.
@@ -332,7 +355,7 @@ class AMA(nn.Module):
         """ Compute the class posteriors for each stimulus in s. Note,
         stimuli are normalized to unit norm. If requested, noise is also
         added.
-        Inputs:
+        Arguments:
         - s: stimulus matrix for which to compute posteriors. (nStim x nDim)
         - addStimNoise: Logical that indicates whether to add noise to
             the input stimuli s. Added noise has the characteristics stored
@@ -368,7 +391,7 @@ class AMA(nn.Module):
         """ Compute the class posteriors for each stimulus in s. Note,
         stimuli are normalized to unit norm. If requested, noise is also
         added.
-        Inputs:
+        Arguments:
         - s: stimulus matrix for which to compute posteriors. (nStim x nDim)
         - addStimNoise: Logical that indicates whether to add noise to
             the input stimuli s. Added noise has the characteristics stored
@@ -392,8 +415,12 @@ class AMA(nn.Module):
     def get_estimates(self, s, method4est='MAP', addStimNoise=True,
             addRespNoise=True):
         """ Compute latent variable estimates for each stimulus in s.
-        Input: s (nStim x nDim) is stimulus matrix
-        Output: estimates (nStim). Vector with the estimate for each stimulus """
+        #
+        Arguments:
+        - s (nStim x nDim) is stimulus matrix
+        #
+        Output:
+        - estimates (nStim). Vector with the estimate for each stimulus """
         posteriors = self.get_posteriors(s, addStimNoise=addStimNoise,
                 addRespNoise=addRespNoise)
         if method4est=='MAP':

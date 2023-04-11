@@ -107,9 +107,11 @@ import torch.nn.functional as F
 from torch.utils.data import TensorDataset, DataLoader
 
 # <codecell>
-##### IMPORT DISPARITY DATA FROM BURGE LAB GITHUB
+#### DOWNLOAD DISPARITY DATA
+##UNCOMMENT_FOR_COLAB_START##
 #!mkdir data
 #!wget -O ./data/ama_dsp_noiseless.mat https://www.dropbox.com/s/eec1917swc124qd/ama_dsp_noiseless.mat?dl=0
+##UNCOMMENT_FOR_COLAB_END##
 
 # <codecell>
 ##############
@@ -198,12 +200,16 @@ plt.show()
 
 # <codecell>
 # FIRST WE NEED TO DOWNLOAD AND INSTALL GEOTORCH
+##UNCOMMENT_FOR_COLAB_START##
 #!pip install geotorch
 #import geotorch
+##UNCOMMENT_FOR_COLAB_END##
 
 # <codecell>
 # INSTALL THE AMA_LIBRARY PACKAGE FROM GITHUB
+##UNCOMMENT_FOR_COLAB_START##
 #!pip install git+https://github.com/dherrera1911/accuracy_maximization_analysis.git
+##UNCOMMENT_FOR_COLAB_END##
 
 # <codecell>
 ##############
@@ -412,24 +418,8 @@ plt.show()
 ##############
 # PLOT DISTRIBUTION OF NOISY FILTER RESPONSES
 ##############
-# Select a subset of categories to visualize
-ctgVis = torch.arange(start=1, end=ctgInd.max(), step=4)
-# Extract the stimuli corresponding to these categories
-visInds = torch.where(torch.isin(ctgInd, ctgVis))[0]
-sVis = s[visInds, :]
-ctgIndVis = ctgInd[visInds]
-# Obtain the noisy responses to these stimuli
-respVis = ama.get_responses(s=sVis, addStimNoise=True, addRespNoise=True)
-respVis = respVis.detach()
-# Plot responses and the ama-estimated ellipses
-fig, ax = plt.subplots()
-au.view_response_ellipses(resp=respVis, covariance=ama.respCov.detach(),
-        ctgInd=ctgIndVis, ctgVal=ctgVal, plotFilt=torch.tensor([0,1]),
-        fig=fig, ax=ax)
-cax = plt.gca().collections[-1].colorbar
-cax.set_label('Disparity')
-fig.set_size_inches(10,8)
-plt.show()
+au.all_response_ellipses(model=ama, s=s, ctgInd=ctgInd,
+        ctgStep=4, colorLabel='Disparity (arcmin)')
 
 
 # <markdowncell>
@@ -550,7 +540,7 @@ plt.show()
 ##############
 # PLOT RESULTING FILTERS
 ##############
-au.view_all_filters_bino(ama)
+au.view_all_filters_1D_bino_image(ama)
 plt.show()
 
 # <markdowncell>
@@ -565,18 +555,9 @@ plt.show()
 ##############
 # PLOT RESPONSE DISTRIBUTION WITH TRAINED MODEL
 ##############
-# Select a subset of categories to visualize
-ctgVis = torch.arange(start=1, end=ctgInd.max(), step=3)
-# Extract the stimuli corresponding to these categories
-visInds = torch.where(torch.isin(ctgInd, ctgVis))[0]
-sVis = s[visInds, :]
-ctgIndVis = ctgInd[visInds]
-# Obtain the noisy responses to these stimuli
-respVis = ama.get_responses(s=sVis, addStimNoise=True, addRespNoise=True)
-respVis = respVis.detach()
-# Plot response distribution and Gaussian fit ellipses
-au.view_response_ellipses(resp=respVis, covariance=ama.respCov.detach(),
-        ctgInd=ctgIndVis, ctgVal=ctgVal, plotFilt=torch.tensor([0,1]))
+au.all_response_ellipses(model=ama, s=s, ctgInd=ctgInd,
+        ctgStep=4, colorLabel='Disparity (arcmin)')
+fig.set_size_inches(10,8)
 
 
 # <markdowncell>

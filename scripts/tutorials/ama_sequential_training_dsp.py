@@ -14,29 +14,31 @@ import scipy.io as spio
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
-import torch.nn as nn
-import torch.nn.functional as F
 from torch.utils.data import TensorDataset, DataLoader
 
-# <codecell>
-##### COMMENT THIS CELL WHEN USING GOOGLE COLAB
-from ama_library import *
 
 # <codecell>
-#### UNCOMMENT THIS CELL FOR GOOGLE COLAB EXECUTION
+##UNCOMMENT_FOR_COLAB_START##
 #!pip install geotorch
 #import geotorch
 #!pip install git+https://github.com/dherrera1911/accuracy_maximization_analysis.git
 #from ama_library import *
 #!mkdir data
-#!wget -O ./data/AMAdataDisparity.mat https://github.com/burgelab/AMA/blob/master/AMAdataDisparity.mat?raw=true
+#!wget -O ./data/ama_dsp_noiseless.mat https://www.dropbox.com/s/eec1917swc124qd/ama_dsp_noiseless.mat?dl=0
+##UNCOMMENT_FOR_COLAB_END##
+
+
+# <codecell>
+import ama_library.ama_class as cl
+import ama_library.utilities as au
+
 
 # <codecell>
 ##############
 #### LOAD AMA DATA
 ##############
 # Load ama struct from .mat file into Python
-data = spio.loadmat('./data/AMAdataDisparity.mat')
+data = spio.loadmat('./data/ama_dsp_noiseless.mat')
 # Extract contrast normalized, noisy stimulus
 s = data.get("s")
 s = torch.from_numpy(s)
@@ -51,16 +53,9 @@ ctgInd = ctgInd.type(torch.LongTensor)  # convert to torch integer
 # Extract the values of the latent variable
 ctgVal = data.get("X")
 ctgVal = torch.from_numpy(ctgVal)
-ctgVal = ctgVal.flatten()
+ctgVal = ctgVal.flatten().float()
 nPixels = int(s.shape[1]/2)
-# Extract Matlab trained filters
-fOri = data.get("f")
-fOri = torch.from_numpy(fOri)
-fOri = fOri.transpose(0,1)
-fOri = fOri.float()
-# Extract original noise parameters
-filterSigmaOri = data.get("var0").flatten()
-maxRespOri = data.get("rMax").flatten()
+
 
 # <markdowncell>
 # ## TRAINING 2 PAIRS OF FILTERS WITHOUT FIXING ANY
@@ -75,11 +70,12 @@ maxRespOri = data.get("rMax").flatten()
 #### SET TRAINING PARAMETERS FOR FIRST PAIR OF FILTERS
 ##############
 nFilt = 2   # Number of filters to use
-filterSigma = float(filterSigmaOri / maxRespOri**2)  # Variance of filter responses
-nEpochs = 20
+pixelNoiseVar = 0.001  # Input pixel noise variance
+respNoiseVar = 0.003  # Filter response noise variance
+nEpochs = 30
 lrGamma = 0.5   # multiplication factor for lr decay
-#lossFun = nn.CrossEntropyLoss()
-lossFun = cross_entropy_loss()
+lossFun = au.cross_entropy_loss()
+#lossFun = au.kl_loss()
 learningRate = 0.01
 lrStepSize = 10
 batchSize = 256
@@ -88,10 +84,10 @@ batchSize = 256
 ##############
 ####  TRAIN FIRST PAIR OF FILTERS
 ##############
-
 # Define model
-amaPy = AMA(sAll=s, nFilt=nFilt, ctgInd=ctgInd, filterSigma=filterSigma,
-        ctgVal=ctgVal)
+ama = cl.AMA(sAll=s, nFilt=nFilt, ctgInd=ctgInd, respNoiseVar=respNoiseVar,
+        pixelCov=pixelNoiseVar, ctgVal=ctgVal, respCovPooling='pre-filter',
+        filtNorm='broadband')
 
 # Put data into Torch data loader tools
 trainDataset = TensorDataset(s, ctgInd)
@@ -99,30 +95,31 @@ trainDataset = TensorDataset(s, ctgInd)
 trainDataLoader = DataLoader(trainDataset, batch_size=batchSize,
         shuffle=True)
 # Set up optimizer
-opt = torch.optim.Adam(amaPy.parameters(), lr=learningRate)  # Adam
+opt = torch.optim.Adam(ama.parameters(), lr=learningRate)  # Adam
 # Make learning rate scheduler
-scheduler = torch.optim.lr_scheduler.StepLR(opt, step_size=lrStepSize, gamma=lrGamma)
+scheduler = torch.optim.lr_scheduler.StepLR(opt, step_size=lrStepSize,
+        gamma=lrGamma)
 
 # <codecell>
 # fit model
-loss, elapsedTimes = fit(nEpochs=nEpochs, model=amaPy,
+loss, elapsedTimes = au.fit(nEpochs=nEpochs, model=ama,
         trainDataLoader=trainDataLoader, lossFun=lossFun, opt=opt,
-        scheduler=scheduler)
+        sAll=s, ctgInd=ctgInd, scheduler=scheduler)
 plt.plot(elapsedTimes, loss)
 plt.show()
 
 # <codecell>
 ## PLOT THE LEARNED FILTERS
-x = np.linspace(start=-30, stop=30, num=amaPy.nDim) # x axis in arc min
-view_all_filters_bino(amaPy, x=x)
-#plt.show()
+x = np.linspace(start=-30, stop=30, num=ama.nDim) # x axis in arc min
+au.view_all_filters_1D_bino_image(ama, x=x)
+plt.show()
 
 # <codecell>
 ## ADD 2 NEW FILTERS
-amaPy.add_new_filters(nFiltNew=2)
+ama.add_new_filters(nFiltNew=2, sAll=s, ctgInd=ctgInd)
 
 # Plot the set of 4 filters before re-training
-view_all_filters_bino(amaPy, x=x)
+au.view_all_filters_1D_bino_image(ama, x=x)
 plt.show()
 
 # <codecell>
@@ -130,17 +127,17 @@ plt.show()
 learningRate2 = learningRate * 1/3
 nEpochs2 = 30
 # Re-initializing the optimizer after adding filters is required
-opt = torch.optim.Adam(amaPy.parameters(), lr=learningRate2)  # Adam
-scheduler = optim.lr_scheduler.StepLR(opt, step_size=lrStepSize,
+opt = torch.optim.Adam(ama.parameters(), lr=learningRate2)  # Adam
+scheduler = torch.optim.lr_scheduler.StepLR(opt, step_size=lrStepSize,
         gamma=lrGamma)
-loss, elapsedTimes = fit(nEpochs=nEpochs2, model=amaPy,
+loss, elapsedTimes = au.fit(nEpochs=nEpochs2, model=ama,
         trainDataLoader=trainDataLoader, lossFun=lossFun, opt=opt,
-        scheduler=scheduler)
+        sAll=s, ctgInd=ctgInd, scheduler=scheduler)
 plt.plot(elapsedTimes, loss)
 plt.show()
 
 # Plot filters after learning
-view_all_filters_bino(amaPy, x=x)
+au.view_all_filters_1D_bino_image(ama, x=x)
 plt.show()
 
 # <markdowncell>
@@ -154,8 +151,9 @@ plt.show()
 
 # <codecell>
 # DEFINE NEW MODEL TO TRAIN
-amaPy2 = AMA(sAll=s, nFilt=nFilt, ctgInd=ctgInd, filterSigma=filterSigma,
-        ctgVal=ctgVal)
+ama2 = cl.AMA(sAll=s, nFilt=nFilt, ctgInd=ctgInd, respNoiseVar=respNoiseVar,
+        pixelCov=pixelNoiseVar, ctgVal=ctgVal, respCovPooling='pre-filter',
+        filtNorm='broadband')
 
 # <codecell>
 # SET PARAMETERS FOR TRAINING THE FILTERS. INITIALIZE OPTIMIZER
@@ -165,46 +163,44 @@ learningRate = 0.01
 lrStepSize = 10
 batchSize = 256
 # Set up optimizer
-opt = torch.optim.Adam(amaPy2.parameters(), lr=learningRate)  # Adam
+opt = torch.optim.Adam(ama2.parameters(), lr=learningRate)  # Adam
 # Make learning rate scheduler
-scheduler = optim.lr_scheduler.StepLR(opt, step_size=lrStepSize,
+scheduler = torch.optim.lr_scheduler.StepLR(opt, step_size=lrStepSize,
         gamma=lrGamma)
 
 # <codecell>
 # FIT MODEL
-loss, elapsedTimes = fit(nEpochs=nEpochs, model=amaPy2,
+loss, elapsedTimes = au.fit(nEpochs=nEpochs, model=ama2,
         trainDataLoader=trainDataLoader, lossFun=lossFun, opt=opt,
-        scheduler=scheduler)
+        sAll=s, ctgInd=ctgInd, scheduler=scheduler)
 plt.plot(elapsedTimes, loss)
 plt.show()
 
-view_all_filters_bino(amaPy2, x)
+au.view_all_filters_1D_bino_image(ama2, x)
 plt.show()
 
 # <codecell>
 # ADD FIXED FILTERS
 # Fix the learned filters in place
-amaPy2.add_fixed_filters(amaPy2.f.detach().clone())
-# Re-initialize trainable filters
-amaPy2.reinitialize_trainable()
+ama2.move_trainable_2_fixed(sAll=s, ctgInd=ctgInd)
 # View current filters
-view_all_filters_bino(amaPy2, x)
+au.view_all_filters_1D_bino_image(ama2, x)
 plt.show()
 
 # <codecell>
 # TRAIN THE NEW FILTERS WITH THE OLD FILTERS FIXED IN PLACE
 # Set up optimizer
-opt = torch.optim.Adam(amaPy2.parameters(), lr=learningRate)  # Adam
+opt = torch.optim.Adam(ama2.parameters(), lr=learningRate)  # Adam
 # Make learning rate scheduler
-scheduler = optim.lr_scheduler.StepLR(opt, step_size=lrStepSize,
+scheduler = torch.optim.lr_scheduler.StepLR(opt, step_size=lrStepSize,
         gamma=lrGamma)
 # fit model
-loss, elapsedTimes = fit(nEpochs=nEpochs, model=amaPy2,
+loss, elapsedTimes = au.fit(nEpochs=nEpochs, model=ama2,
         trainDataLoader=trainDataLoader, lossFun=lossFun, opt=opt,
-        scheduler=scheduler)
+        sAll=s, ctgInd=ctgInd, scheduler=scheduler)
 plt.plot(elapsedTimes, loss)
 plt.show()
-view_all_filters_bino(amaPy2)
+au.view_all_filters_1D_bino_image(ama2)
 plt.show()
 
 
@@ -219,21 +215,22 @@ def opt_fun(model):
 # We need to define a function that returns schedulers, because a
 # new one has to be defined for each new optimizer
 def scheduler_fun(opt):
-    return optim.lr_scheduler.StepLR(opt, step_size=lrStepSize, gamma=lrGamma)
+    return torch.optim.lr_scheduler.StepLR(opt, step_size=lrStepSize, gamma=lrGamma)
 
 # Initialize model to train
-amaPy3 = AMA(sAll=s, nFilt=nFilt, ctgInd=ctgInd, filterSigma=filterSigma,
-        ctgVal=ctgVal)
+ama3 = cl.AMA(sAll=s, nFilt=nFilt, ctgInd=ctgInd, respNoiseVar=respNoiseVar,
+        pixelCov=pixelNoiseVar, ctgVal=ctgVal, respCovPooling='pre-filter',
+        filtNorm='broadband')
 
 # <codecell>
 # Train model by pairs
-loss3, elapsedTimes3 = fit_by_pairs(nEpochs=nEpochs, model=amaPy3,
+loss3, elapsedTimes3 = au.fit_by_pairs(nEpochs=nEpochs, model=ama3,
         trainDataLoader=trainDataLoader, lossFun=lossFun, opt_fun=opt_fun,
-        nPairs=nPairs, scheduler_fun=scheduler_fun)
+        nPairs=nPairs, sAll=s, ctgInd=ctgInd, scheduler_fun=scheduler_fun)
 
 # <codecell>
 # Visualize trained filters
-view_all_filters_bino(amaPy3)
+au.view_all_filters_1D_bino_image(ama3)
 plt.show()
 
 # <codecell>
@@ -241,12 +238,5 @@ plt.show()
 for l in range(nPairs):
     plt.subplot(1, nPairs, l+1)
     plt.plot(elapsedTimes3[l], loss3[l])
-plt.show()
-
-# <codecell>
-# Visualize MATLAB AMA filters
-for n in range(fOri.shape[0]):
-    plt.subplot(2,2,n+1)
-    view_filters_bino(fOri[n,:])
 plt.show()
 

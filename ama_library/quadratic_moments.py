@@ -156,6 +156,8 @@ def isotropic_individual_stim_secondM(s, sigma, noiseW=None, meanW=None):
     deviation sigma and normalization by the norm. It can either take
     the weighting terms for the identity and the mean outer product as
     inputs, or compute them here"""
+    if s.dim()==1:
+        s = s.unsqueeze(0)
     df = int(s.shape[1])
     nStim = s.shape[0]
     # Fill up vectors ctgInd and normFactor with irrelevant values if not given
@@ -231,61 +233,45 @@ def isotropic_ctg_secondM(s, sigma, noiseW=None, meanW=None, ctgInd=None,
     """
     df = int(s.shape[1])
     nStim = s.shape[0]
-    # Fill up vectors ctgInd and normFactor with irrelevant values if not given
+    # Fill up vectors ctgInd with irrelevant values if not given
     if ctgInd is None:
         ctgInd = torch.zeros(nStim)
+    # If precomputed weights are not given, compute them here
+    if (noiseW is None) or (meanW is None):
+        nc = compute_nc_parameter_batch(s, sigma)
+    if noiseW is None:
+        hypFunNoise = compute_stimuli_hyp1f1(a=1, b=df/2+1, nc=nc)
+        noiseW = hypFunNoise * (1/df)
+    if meanW is None:
+        hypFunMean = compute_stimuli_hyp1f1(a=1, b=df/2+2, nc=nc)
+        meanW = hypFunMean * (1/(df+2))
     # Compute the means of the second moments for each ctg of stimuli
     nClasses = np.unique(ctgInd).size
-    expectedCovs = torch.zeros(nClasses, df, df)
+    expectedSM = torch.zeros(nClasses, df, df)
     for cl in range(nClasses):
         # Get index of stim in this level
         levelInd = [i for i, j in enumerate(ctgInd) if j == cl]
+        nStimLevel = len(levelInd)
         # Select the weights of the formula for this category
-        noiseWStim = None
-        meanWStim = None
-        if noiseW is not None:
-            noiseWStim = noiseW[levelInd]
-        if meanW is not None:
-            meanWStim = meanW[levelInd]
-        # Get the second moment of each stimulus in the category
-        stimCovs = isotropic_individual_stim_secondM(s=s[levelInd,:],
-                sigma=sigma, noiseW=noiseWStim, meanW=meanWStim)
+        noiseWMean = torch.mean(noiseW[levelInd])  # Scalar by which to multiply identity term
+        meanWStim = meanW[levelInd]  # Vector with scaling fators for each stimulus
+        # Scale each stimulus by the sqrt of the outer prods weights
+        stimScales = torch.sqrt(meanWStim/(nStimLevel))/sigma
         if normFactor is not None:
-            normFactorStim = normFactor[levelInd]
-            stimCovs = torch.einsum('nbd,n->nbd', stimCovs,
-                    1/normFactorStim)
+            stimScales = stimScales * normFactor[levelInd]
+        scaledStim = torch.einsum('nd,n->nd', s[levelInd,:], stimScales)
+        expectedSM[cl,:,:] = torch.einsum('nd,nb->db', scaledStim, scaledStim) + \
+                torch.eye(df)*noiseWMean
+        # Get the second moment of each stimulus in the category
+        #if normFactor is not None:
+        #    normFactorStim = normFactor[levelInd]
+        #    stimCovs = torch.einsum('nbd,n->nbd', stimCovs,
+        #            1/normFactorStim)
+        #stimCovs = isotropic_individual_stim_secondM(s=s[levelInd,:],
+        #        sigma=sigma, noiseW=noiseWStim, meanW=meanWStim)
         # Get the mean of the stimulus covariances for this class
-        expectedCovs[cl,:,:] = torch.mean(stimCovs, dim=0)
-    return expectedCovs
-
-
-####### SHOULD BE ABLE TO DISCARD, AND USE FUNCTION ABOVE INSTEAD.
-####### CHECK ABOUT CHANGING SCRIPTS 
-#### Modify to include narrowband normalization?
-# Second moment with broadband normalization, isotropic noise
-#def isotropic_broadb_sm_batch(s, sigma):
-#    """ Estimate the second moment matrix of a set of stimuli s,
-#    with isotropic white noise and broadband normalization.
-#    s: Stimuli matrix. shape (nStim x nDim)
-#    sigma: Standar deviation of the isotropic noise
-#    """
-#    nStim = int(s.shape[0])  # Get number of dimensions
-#    df = int(s.shape[1])  # Get number of dimensions
-#    # non-centrality parameter, ||\mu||^2. Make numpy array for mpm package
-#    nc = compute_nc_parameter_batch(s, sigma)
-#    # Calculate hypergeometric functions that weight the
-#    # two terms of the second moment formula
-#    hypFunNoise = compute_stimuli_hyp1f1(a=1, b=df/2+1, nc=nc)
-#    hypFunMean = compute_stimuli_hyp1f1(a=1, b=df/2+2, nc=nc)
-#    # Multiply by the number-of-dimensions factor 
-#    noiseW = hypFunNoise * (1/df) * (1/nStim)
-#    meanW = hypFunMean * (1/(df+2)) * (1/nStim)
-#    # Get the expected covariance with the sitmuli and these
-#    # weighting factors
-#    expectedCov = isotropic_weighted_secondM_batch(noiseW=noiseW,
-#            meanW=meanW, s=s, sigma=sigma)
-#    return expectedCov
-
+        #expectedCovs[cl,:,:] = torch.mean(stimCovs, dim=0)
+    return expectedSM
 
 
 # Compute the expected value of noisy normalized stimulus set
