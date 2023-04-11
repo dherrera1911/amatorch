@@ -547,7 +547,6 @@ fig.set_size_inches(14,12)
 plt.show()
 
 
-##UNCOMMENT_FOR_COLAB_START##
 
 # <markdowncell>
 #
@@ -588,300 +587,299 @@ plt.show()
 #
 # We also compare the results of our analytic calculation to
 # the result of low-sample empirical estimation of the second moment
-
-# <codecell>
-#########################
-# IMPORT PACKAGES AND AMA UTILITIES
-#########################
-import numpy as np
-import matplotlib.pyplot as plt
-import mpmath as mpm  # Important to use mpmath for hyp1f1, scipy blows up
-import torch
-from torch.distributions.multivariate_normal import MultivariateNormal
-
-import scipy.io as spio
-import time
-import scipy as sp
-
-# <codecell>
-# COMMENT THIS CELL FOR GOOGLE COLAB EXECUTION
-import ama_library.utilities as au
-
-# <codecell>
-#### UNCOMMENT THIS CELL FOR GOOGLE COLAB EXECUTION
-#!pip install geotorch
-#import geotorch
-#!pip install git+https://github.com/dherrera1911/accuracy_maximization_analysis.git
-#import ama_library.ama_utilities as au
-#!wget -O ./data/amaInput_12dir_3speed_0stdDsp_train.mat https://drive.google.com/file/d/1m7BXFZFe0ppsHhURFbhqaCqHR3vTbD6V/view?usp=sharing
-
-# <codecell>
-#########################
-# IMPORT AND PREPROCESS THE STIMULUS DATASET
-#########################
-# Load ama struct from .mat file into Python
-data = spio.loadmat('./data/amaInput_12dir_3speed_0stdDsp_train.mat')
-# Extract contrast normalized, noisy stimulus
-s = data.get("Iret")
-s = torch.from_numpy(s)
-s = s.transpose(0,1)
-s = s.float()
-# We turn the images into contrast stimuli
-sWeb = au.contrast_stim(s)
-# Extract the vector indicating category of each stimulus row
-ctgInd = data.get("ctgIndMotion")
-ctgInd = torch.tensor(ctgInd)
-ctgInd = ctgInd.flatten()
-ctgInd = ctgInd-1       # convert to python indexing (subtract 1)
-ctgInd = ctgInd.type(torch.LongTensor)  # convert to torch integer
-nCtg = int(ctgInd.max()+1)
-# Extract the values of the latent variable
-ctgVal = data.get("Xmotion")
-ctgVal = torch.from_numpy(ctgVal)
-# Extract some properties of the dataset
-htz = data.get('smpPerSec')
-nTimesteps = int(data.get('durationMs')/(1000)*htz)
-nPixels = len(data.get('smpPosDegX'))
-nStim = sWeb.shape[0]
-df = s.shape[1]
-
-# <codecell>
-#########################
-# VISUALIZE A STIMULUS
-#########################
-nRand = torch.randint(high=nStim-1, size=(1,1))
-ax = au.view_filters_bino_video(sWeb[nRand,:].unsqueeze(0),
-        frames=nTimesteps, pixels=nPixels)
-ax.axes.xaxis.set_visible(True)
-ax.axes.yaxis.set_visible(True)
-plt.xlabel('Pixels')
-plt.ylabel('Time')
-plt.title('Left eye                   Right eye')
-plt.show()
-
-
-# <codecell>
-#########################
-# SELECT PARAMETERS FOR THE COVARIANCE ESTIMATION PROCEDURE
-#########################
-# Choose the std for the isotropic gaussian noise
-pixelSigma = 0.2
-# Choose one category of the random variable whose second moment
-# to estimate
-ctg = 14
-# Number of samples per stimulus for the empirical 'true' reference
-samplesPerStimRef = 700
-# Number of samples per stimulus for the empirical low-samples reference
-samplesPerStimLow = 1  # Samples per each stim, low sample estimate
 #
-# Extract the stimuli of this category
-sCtg = sWeb[torch.nonzero(ctgInd==ctg),:]. squeeze(1)
-# Get number of total stim and samples
-nCtgStim = sCtg.shape[0]
-nSamplesRef = nCtgStim * samplesPerStimRef
-nSamplesLow = nCtgStim * samplesPerStimLow
-# Generate the Covariance matrix
-noiseCov = torch.eye(df)*pixelSigma**2
-
-# <codecell>
-#########################
-# COMPUTE ANALYTIC ESTIMATE OF SECOND MOMENT FOR THE CATEGORY
-#########################
+## <codecell>
+##########################
+## IMPORT PACKAGES AND AMA UTILITIES
+##########################
+#import numpy as np
+#import matplotlib.pyplot as plt
+#import mpmath as mpm  # Important to use mpmath for hyp1f1, scipy blows up
+#import torch
+#from torch.distributions.multivariate_normal import MultivariateNormal
 #
-# Get analytic estimate and time it
-start = time.time()
-analyticCov = au.isotropic_broadb_sm_batch(sCtg, sigma=pixelSigma)
-end = time.time()
-print(f'Analytic took: {end-start}')
-
-
-# <codecell>
-#########################
-# COMPUTE EMPIRICAL ESTIMATES
-#########################
+#import scipy.io as spio
+#import time
+#import scipy as sp
 #
-# Initialize a torch multivariante normal distribution for
-# the noise with the required covariance
-gamma = MultivariateNormal(loc=torch.zeros(df),
-        covariance_matrix=noiseCov)
+## <codecell>
+## COMMENT THIS CELL FOR GOOGLE COLAB EXECUTION
+#import ama_library.utilities as au
 #
-# Make the samples of the noisy, normalized dataset, with
-# the reference number of samples
-start = time.time()
-start = time.time()
-gamma.rsample([int(nSamplesRef)])
-end = time.time()
-end - start
-xSamples = sCtg.repeat(samplesPerStimRef,1) + gamma.rsample([int(nSamplesRef)])
-# Get normalization factor for each sample
-xSamplesNorm = xSamples.norm(dim=1)
-# Normalize each random sample
-xSamples = torch.einsum('nd,n->nd', xSamples, 1/xSamplesNorm)
-# Compute the second moment matrix of the samples
-refCov = torch.einsum('nd,nb->db', xSamples, xSamples) * 1/nSamplesRef
-end = time.time()
-print(f'Reference took: {end-start}')
+## <codecell>
+##### UNCOMMENT THIS CELL FOR GOOGLE COLAB EXECUTION
+##!pip install geotorch
+##import geotorch
+##!pip install git+https://github.com/dherrera1911/accuracy_maximization_analysis.git
+##import ama_library.ama_utilities as au
+##!wget -O ./data/amaInput_12dir_3speed_0stdDsp_train.mat https://drive.google.com/file/d/1m7BXFZFe0ppsHhURFbhqaCqHR3vTbD6V/view?usp=sharing
 #
-# Do the same for the low-sample empirical estimation
-start = time.time()
-xSamplesLow = sCtg.repeat(samplesPerStimLow,1) + gamma.rsample([int(nSamplesLow)])
-# Normalization factor
-xSamplesLowNorm = xSamplesLow.norm(dim=1)
-# Normalize each random sample
-xSamplesLow = torch.einsum('nd,n->nd', xSamplesLow, 1/xSamplesLowNorm)
-# Compute the second moment matrix of the samples
-lowEmpCov = torch.einsum('nd,nb->db', xSamplesLow, xSamplesLow) * 1/nSamplesLow
-end = time.time()
-print(f'Low-samples took: {end-start}')
-
-
-# <markdowncell>
+## <codecell>
+##########################
+## IMPORT AND PREPROCESS THE STIMULUS DATASET
+##########################
+## Load ama struct from .mat file into Python
+#data = spio.loadmat('./data/amaInput_12dir_3speed_0stdDsp_train.mat')
+## Extract contrast normalized, noisy stimulus
+#s = data.get("Iret")
+#s = torch.from_numpy(s)
+#s = s.transpose(0,1)
+#s = s.float()
+## We turn the images into contrast stimuli
+#sWeb = au.contrast_stim(s)
+## Extract the vector indicating category of each stimulus row
+#ctgInd = data.get("ctgIndMotion")
+#ctgInd = torch.tensor(ctgInd)
+#ctgInd = ctgInd.flatten()
+#ctgInd = ctgInd-1       # convert to python indexing (subtract 1)
+#ctgInd = ctgInd.type(torch.LongTensor)  # convert to torch integer
+#nCtg = int(ctgInd.max()+1)
+## Extract the values of the latent variable
+#ctgVal = data.get("Xmotion")
+#ctgVal = torch.from_numpy(ctgVal)
+## Extract some properties of the dataset
+#htz = data.get('smpPerSec')
+#nTimesteps = int(data.get('durationMs')/(1000)*htz)
+#nPixels = len(data.get('smpPosDegX'))
+#nStim = sWeb.shape[0]
+#df = s.shape[1]
 #
-# We now compare the results of the empirical approximation and
-# the analytically computed second moment. First we visualize
-# the three obtained matrices, and a visualization of the
-# estimation error for each matrix element. Then we show a
-# scatter plot with the reference empirical value in the X
-# axis, and the analytic and low-sample values on the Y axis.
-# The spread of the low-sample estimation shows the
-# approximation error of this method.
-
-# <codecell>
-#########################
-# VISUALIZE THE THREE COVARIANCE MATRICES, AND
-# THE ESTIMATION ERROR OF EACH ELEMENT
-#########################
-#
-# Compute the maximum errors to get a common color scale
-maxErr1 = torch.max(refCov - analyticCov)
-maxErr2 = torch.max(refCov - lowEmpCov)
-maxErr = max((maxErr1, maxErr2))
-#
-# Plot the matrices
-# Analytic second moment matrix
-plt.subplot(2,3,1)
-plt.imshow(analyticCov)
-plt.title(f'Analytic', fontsize=11)
-# Diff Reference - Empirical
-plt.subplot(2,3,4)
-plt.imshow(refCov - analyticCov, cmap='bwr')
-plt.clim(-maxErr, maxErr)
-plt.title(f'Reference - Analytic', fontsize=11)
-#  Empirical reference
-plt.subplot(2,3,2)
-plt.imshow(refCov)
-plt.title(f'Empirical ref', fontsize=11)
-#  Empirical low sample
-plt.subplot(2,3,3)
-plt.imshow(lowEmpCov)
-plt.title(f'Empirical {int(nSamplesLow)} samples', fontsize=11)
-#  Diff Reference - :ow sample
-plt.subplot(2,3,6)
-plt.imshow(refCov - lowEmpCov, cmap='bwr')
-plt.clim(-maxErr, maxErr)
-plt.title(f'Reference - Low sample', fontsize=11)
-fig = plt.gcf()
-fig.suptitle(f'Second moments d={int(df)}, $\sigma$={pixelSigma}')
-plt.setp(fig.get_axes(), xticks=[], yticks=[])
-fig.set_size_inches(7,6)
-plt.show()
-
-# <codecell>
-#########################
-# VISUALIZE THE SCATTER PLOT OF EACH ELEMENTS ESTIMATES
-# FOR THE TWO ESTIMATION METHODS
-#########################
-#
-# Get the indices of the non-repeated matrix elements (because of symmetry)
-nonRepeatedInds = torch.nonzero(torch.tril(torch.ones(df,df)).reshape(df**2))
-# Get vectors with the matrix elements for the 3 matrices
-smEmpRef = refCov.reshape(df**2)[nonRepeatedInds]
-smEmpLow = lowEmpCov.reshape(df**2)[nonRepeatedInds]
-smAnalytic = analyticCov.reshape(df**2)[nonRepeatedInds]
-# Do scatter plot
-plt.scatter(smEmpRef, smEmpLow, c='red', label=f'{nSamplesLow} samples',
-        s=1.2, alpha=0.2)
-plt.scatter(smEmpRef, smAnalytic, color='blue', label='Analytic',
-        s=1.2, alpha=0.2)
-# Add identity line
-plt.axline((0,0), slope=1, color='black')
-plt.show()
-
-
-# <codecell>
-#########################
-# COMPUTE AN APPROXIMATION TO THE STIMULUS MEAN, AND THE
-# EMPIRICAL REFERENCE TO COMPARE TO
-#########################
-#
-# Compute the mean of the normalized, noisy stimuli
-refMean = xSamples.mean(dim=0)
-# Use naive normalizing factor, the non-noisy stim inverse norm
-normFactor1 = sCtg.norm(dim=1)
-sNorm = torch.einsum('nb,n->nb', sCtg, 1/normFactor1)
-meanApprox = sNorm.mean(dim=0) # mean of noisy normalized stim
-# Use inverse-chi-square normalizing factor
-normFactor2 = inv_ncx_batch(mu=sCtg, sigma=pixelSigma)
-meanApprox2 = torch.mean(torch.einsum('nb,n->nb', sCtg, normFactor2), dim=0)
-
-plt.plot(meanApprox, color='blue')
-plt.plot(meanApprox2, color='red')
-plt.plot(refMean, color='black')
-plt.show()
-
-ax = au.view_filters_bino_video(refMean.unsqueeze(0),
-        frames=nTimesteps, pixels=nPixels)
-ax.axes.xaxis.set_visible(True)
-ax.axes.yaxis.set_visible(True)
-plt.xlabel('Pixels')
-plt.ylabel('Time')
-plt.title('Left eye                   Right eye')
-plt.show()
-
-# Generate the Covariance matrix and torch distribution
-#Cov = torch.eye(df)*pixelSigma**2
-#gamma = MultivariateNormal(loc=torch.zeros(df), covariance_matrix=Cov)
-#analyticCov = torch.zeros(nCtg, df, df)
-#analyticDet = torch.zeros(nCtg)
-#lowEmpCov = torch.zeros(nCtg, df, df)
-#lowEmpDet = torch.zeros(nCtg)
-#for ctg in range(nCtg):
-#    # Extract the stimuli of this category
-#    sCtg = sWeb[torch.nonzero(ctgInd==ctg),:]. squeeze(1)
-#    analyticCov[ctg,:,:] = au.isotropic_broadb_sm_batch(sCtg, sigma=pixelSigma)
-#    analyticDet[ctg] = torch.linalg.det(analyticCov[ctg,:,:])
-#    xSamplesLow = sCtg.repeat(samplesPerStimLow,1) + \
-#        gamma.rsample([int(nSamplesLow)]) # for noisy estimation
-#    xSamplesLowNorm = xSamplesLow.norm(dim=1) # Normalization factor
-#    xSamplesLow = torch.einsum('nd,n->nd', xSamplesLow, 1/xSamplesLowNorm)
-#    lowEmpCov[ctg,:,:] = torch.einsum('nd,nb->db', xSamplesLow, xSamplesLow) * \
-#        1/nSamplesLow
-#    lowEmpDet[ctg] = torch.linalg.det(lowEmpCov[ctg,:,:])
-#
-#
-#ev = torch.real(torch.linalg.eigvals(analyticCov[10,:,:]))
-#evm = mpm.matrix(ev)
-#
-#
-#
-#plt.plot(analyticDet)
-#plt.show()
-#
-#plt.plot(lowEmpDet)
+## <codecell>
+##########################
+## VISUALIZE A STIMULUS
+##########################
+#nRand = torch.randint(high=nStim-1, size=(1,1))
+#ax = au.view_filters_bino_video(sWeb[nRand,:].unsqueeze(0),
+#        frames=nTimesteps, pixels=nPixels)
+#ax.axes.xaxis.set_visible(True)
+#ax.axes.yaxis.set_visible(True)
+#plt.xlabel('Pixels')
+#plt.ylabel('Time')
+#plt.title('Left eye                   Right eye')
 #plt.show()
 #
 #
+## <codecell>
+##########################
+## SELECT PARAMETERS FOR THE COVARIANCE ESTIMATION PROCEDURE
+##########################
+## Choose the std for the isotropic gaussian noise
+#pixelSigma = 0.2
+## Choose one category of the random variable whose second moment
+## to estimate
+#ctg = 14
+## Number of samples per stimulus for the empirical 'true' reference
+#samplesPerStimRef = 700
+## Number of samples per stimulus for the empirical low-samples reference
+#samplesPerStimLow = 1  # Samples per each stim, low sample estimate
+##
+## Extract the stimuli of this category
+#sCtg = sWeb[torch.nonzero(ctgInd==ctg),:]. squeeze(1)
+## Get number of total stim and samples
+#nCtgStim = sCtg.shape[0]
+#nSamplesRef = nCtgStim * samplesPerStimRef
+#nSamplesLow = nCtgStim * samplesPerStimLow
+## Generate the Covariance matrix
+#noiseCov = torch.eye(df)*pixelSigma**2
+#
+## <codecell>
+##########################
+## COMPUTE ANALYTIC ESTIMATE OF SECOND MOMENT FOR THE CATEGORY
+##########################
+##
+## Get analytic estimate and time it
+#start = time.time()
+#analyticCov = au.isotropic_broadb_sm_batch(sCtg, sigma=pixelSigma)
+#end = time.time()
+#print(f'Analytic took: {end-start}')
 #
 #
-#ctgPlot = np.arange(1, nCtg, 4)
-#nCol = len(ctgPlot)
-#for nc in range(nCol):
-#    ctg = ctgPlot[nc]
-#    plt.subplot(2, nCol, 1+nc)
-#    plt.imshow(analyticCov[ctg])
-#    plt.subplot(2, nCol, 1+nc+nCol)
-#    plt.imshow(lowEmpCov[ctg])
+## <codecell>
+##########################
+## COMPUTE EMPIRICAL ESTIMATES
+##########################
+##
+## Initialize a torch multivariante normal distribution for
+## the noise with the required covariance
+#gamma = MultivariateNormal(loc=torch.zeros(df),
+#        covariance_matrix=noiseCov)
+##
+## Make the samples of the noisy, normalized dataset, with
+## the reference number of samples
+#start = time.time()
+#start = time.time()
+#gamma.rsample([int(nSamplesRef)])
+#end = time.time()
+#end - start
+#xSamples = sCtg.repeat(samplesPerStimRef,1) + gamma.rsample([int(nSamplesRef)])
+## Get normalization factor for each sample
+#xSamplesNorm = xSamples.norm(dim=1)
+## Normalize each random sample
+#xSamples = torch.einsum('nd,n->nd', xSamples, 1/xSamplesNorm)
+## Compute the second moment matrix of the samples
+#refCov = torch.einsum('nd,nb->db', xSamples, xSamples) * 1/nSamplesRef
+#end = time.time()
+#print(f'Reference took: {end-start}')
+##
+## Do the same for the low-sample empirical estimation
+#start = time.time()
+#xSamplesLow = sCtg.repeat(samplesPerStimLow,1) + gamma.rsample([int(nSamplesLow)])
+## Normalization factor
+#xSamplesLowNorm = xSamplesLow.norm(dim=1)
+## Normalize each random sample
+#xSamplesLow = torch.einsum('nd,n->nd', xSamplesLow, 1/xSamplesLowNorm)
+## Compute the second moment matrix of the samples
+#lowEmpCov = torch.einsum('nd,nb->db', xSamplesLow, xSamplesLow) * 1/nSamplesLow
+#end = time.time()
+#print(f'Low-samples took: {end-start}')
+#
+#
+## <markdowncell>
+##
+## We now compare the results of the empirical approximation and
+## the analytically computed second moment. First we visualize
+## the three obtained matrices, and a visualization of the
+## estimation error for each matrix element. Then we show a
+## scatter plot with the reference empirical value in the X
+## axis, and the analytic and low-sample values on the Y axis.
+## The spread of the low-sample estimation shows the
+## approximation error of this method.
+#
+## <codecell>
+##########################
+## VISUALIZE THE THREE COVARIANCE MATRICES, AND
+## THE ESTIMATION ERROR OF EACH ELEMENT
+##########################
+##
+## Compute the maximum errors to get a common color scale
+#maxErr1 = torch.max(refCov - analyticCov)
+#maxErr2 = torch.max(refCov - lowEmpCov)
+#maxErr = max((maxErr1, maxErr2))
+##
+## Plot the matrices
+## Analytic second moment matrix
+#plt.subplot(2,3,1)
+#plt.imshow(analyticCov)
+#plt.title(f'Analytic', fontsize=11)
+## Diff Reference - Empirical
+#plt.subplot(2,3,4)
+#plt.imshow(refCov - analyticCov, cmap='bwr')
+#plt.clim(-maxErr, maxErr)
+#plt.title(f'Reference - Analytic', fontsize=11)
+##  Empirical reference
+#plt.subplot(2,3,2)
+#plt.imshow(refCov)
+#plt.title(f'Empirical ref', fontsize=11)
+##  Empirical low sample
+#plt.subplot(2,3,3)
+#plt.imshow(lowEmpCov)
+#plt.title(f'Empirical {int(nSamplesLow)} samples', fontsize=11)
+##  Diff Reference - :ow sample
+#plt.subplot(2,3,6)
+#plt.imshow(refCov - lowEmpCov, cmap='bwr')
+#plt.clim(-maxErr, maxErr)
+#plt.title(f'Reference - Low sample', fontsize=11)
+#fig = plt.gcf()
+#fig.suptitle(f'Second moments d={int(df)}, $\sigma$={pixelSigma}')
+#plt.setp(fig.get_axes(), xticks=[], yticks=[])
+#fig.set_size_inches(7,6)
 #plt.show()
 #
-
-##UNCOMMENT_FOR_COLAB_END##
+## <codecell>
+##########################
+## VISUALIZE THE SCATTER PLOT OF EACH ELEMENTS ESTIMATES
+## FOR THE TWO ESTIMATION METHODS
+##########################
+##
+## Get the indices of the non-repeated matrix elements (because of symmetry)
+#nonRepeatedInds = torch.nonzero(torch.tril(torch.ones(df,df)).reshape(df**2))
+## Get vectors with the matrix elements for the 3 matrices
+#smEmpRef = refCov.reshape(df**2)[nonRepeatedInds]
+#smEmpLow = lowEmpCov.reshape(df**2)[nonRepeatedInds]
+#smAnalytic = analyticCov.reshape(df**2)[nonRepeatedInds]
+## Do scatter plot
+#plt.scatter(smEmpRef, smEmpLow, c='red', label=f'{nSamplesLow} samples',
+#        s=1.2, alpha=0.2)
+#plt.scatter(smEmpRef, smAnalytic, color='blue', label='Analytic',
+#        s=1.2, alpha=0.2)
+## Add identity line
+#plt.axline((0,0), slope=1, color='black')
+#plt.show()
+#
+#
+## <codecell>
+##########################
+## COMPUTE AN APPROXIMATION TO THE STIMULUS MEAN, AND THE
+## EMPIRICAL REFERENCE TO COMPARE TO
+##########################
+##
+## Compute the mean of the normalized, noisy stimuli
+#refMean = xSamples.mean(dim=0)
+## Use naive normalizing factor, the non-noisy stim inverse norm
+#normFactor1 = sCtg.norm(dim=1)
+#sNorm = torch.einsum('nb,n->nb', sCtg, 1/normFactor1)
+#meanApprox = sNorm.mean(dim=0) # mean of noisy normalized stim
+## Use inverse-chi-square normalizing factor
+#normFactor2 = inv_ncx_batch(mu=sCtg, sigma=pixelSigma)
+#meanApprox2 = torch.mean(torch.einsum('nb,n->nb', sCtg, normFactor2), dim=0)
+#
+#plt.plot(meanApprox, color='blue')
+#plt.plot(meanApprox2, color='red')
+#plt.plot(refMean, color='black')
+#plt.show()
+#
+#ax = au.view_filters_bino_video(refMean.unsqueeze(0),
+#        frames=nTimesteps, pixels=nPixels)
+#ax.axes.xaxis.set_visible(True)
+#ax.axes.yaxis.set_visible(True)
+#plt.xlabel('Pixels')
+#plt.ylabel('Time')
+#plt.title('Left eye                   Right eye')
+#plt.show()
+#
+## Generate the Covariance matrix and torch distribution
+##Cov = torch.eye(df)*pixelSigma**2
+##gamma = MultivariateNormal(loc=torch.zeros(df), covariance_matrix=Cov)
+##analyticCov = torch.zeros(nCtg, df, df)
+##analyticDet = torch.zeros(nCtg)
+##lowEmpCov = torch.zeros(nCtg, df, df)
+##lowEmpDet = torch.zeros(nCtg)
+##for ctg in range(nCtg):
+##    # Extract the stimuli of this category
+##    sCtg = sWeb[torch.nonzero(ctgInd==ctg),:]. squeeze(1)
+##    analyticCov[ctg,:,:] = au.isotropic_broadb_sm_batch(sCtg, sigma=pixelSigma)
+##    analyticDet[ctg] = torch.linalg.det(analyticCov[ctg,:,:])
+##    xSamplesLow = sCtg.repeat(samplesPerStimLow,1) + \
+##        gamma.rsample([int(nSamplesLow)]) # for noisy estimation
+##    xSamplesLowNorm = xSamplesLow.norm(dim=1) # Normalization factor
+##    xSamplesLow = torch.einsum('nd,n->nd', xSamplesLow, 1/xSamplesLowNorm)
+##    lowEmpCov[ctg,:,:] = torch.einsum('nd,nb->db', xSamplesLow, xSamplesLow) * \
+##        1/nSamplesLow
+##    lowEmpDet[ctg] = torch.linalg.det(lowEmpCov[ctg,:,:])
+##
+##
+##ev = torch.real(torch.linalg.eigvals(analyticCov[10,:,:]))
+##evm = mpm.matrix(ev)
+##
+##
+##
+##plt.plot(analyticDet)
+##plt.show()
+##
+##plt.plot(lowEmpDet)
+##plt.show()
+##
+##
+##
+##
+##ctgPlot = np.arange(1, nCtg, 4)
+##nCol = len(ctgPlot)
+##for nc in range(nCol):
+##    ctg = ctgPlot[nc]
+##    plt.subplot(2, nCol, 1+nc)
+##    plt.imshow(analyticCov[ctg])
+##    plt.subplot(2, nCol, 1+nc+nCol)
+##    plt.imshow(lowEmpCov[ctg])
+##plt.show()
+##
+#
