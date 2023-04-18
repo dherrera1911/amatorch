@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -9,27 +10,31 @@ from ama_library import utilities as au
 from ama_library import quadratic_moments as qm
 import time
 
-# Define model class
-class AMA(nn.Module):
+#####################
+#####################
+# PARENT AMA CLASS
+#####################
+#####################
+
+class AMA(ABC, nn.Module):
+    #def __init__(self, sAll, ctgInd, nFilt=2, respNoiseVar=torch.tensor(0.02),
+    #        pixelCov=torch.tensor(0), noiseType='isotropic', ctgVal=None,
+    #        filtNorm='broadband', respCovPooling='post-filter'):
     def __init__(self, sAll, ctgInd, nFilt=2, respNoiseVar=torch.tensor(0.02),
-            pixelCov=torch.tensor(0), noiseType='isotropic', ctgVal=None,
-            filtNorm='broadband', respCovPooling='post-filter'):
+            ctgVal=None, filtNorm='broadband', respCovPooling='pre-filter'):
         """ AMA model object.
         Arguments:
         sAll: Input stimuli. (nStim x nDim)
         ctgInd: Category index of each stimulus. (nStim)
         nFilt: Number of filters to train
         respNoiseVar: Variance of filter response noise. Scalar
-        pixelCov: Variance of the noise added to input stimuli.
-        noiseType: String indicating type of noise. 'isotropic' only supported
-            option at the moment
         ctgVal: Value of the latent variable corresponding to each category.
             Defaults to equispaced points in [-1, 1].
         filtNorm: String indicating method use to normalize filter responses.
             Can be 'broadband' (default) or 'narrowband'
         respCovPooling: String indicating how to compute the filter response
             covariances. 'pre-filter' can be less accurate depending on the
-            problem, but is faster. 'post-filter' is slower but should give
+            problem, but is faster. 'post-filter' is slower but gives
             exact results. Defults to 'post-filter'
         """
         super().__init__()
@@ -40,16 +45,15 @@ class AMA(nn.Module):
         # Model parameters
         self.f = nn.Parameter(fInit)
         geotorch.sphere(self, "f")
-        # Attribute with fixed (non-trainable) filters. Empty unless manually filled
+        # Attribute with fixed (non-trainable) filters
         self.fFixed = torch.tensor([])
-        ### House-keeping of variable assigning
-        # Get the dimensions of different relevant vectors
-        self.nFilt = self.f.shape[0]
-        self.nFiltAll = self.nFilt      # Number of filters including fixed filters
-        self.nDim = self.f.shape[1]
-        self.nClasses = np.unique(ctgInd).size
-        self.filtNorm = filtNorm
-        self.respCovPooling = respCovPooling
+        # Assign handy variables
+        self.nFilt = self.f.shape[0]  # Number of trainable filters
+        self.nFiltAll = self.nFilt  # Number of filters including fixed filters
+        self.nDim = self.f.shape[1]  # Number of dimensions
+        self.nClasses = np.unique(ctgInd).size  # Number of classes
+        self.filtNorm = filtNorm  # Method to normalize the filters
+        self.respCovPooling = respCovPooling  # Method to generate response covariance
         # If no category values given, assign equispaced values in [-1,1]
         if ctgVal == None:
             ctgVal = np.linspace(-1, 1, self.nClasses)
@@ -57,81 +61,24 @@ class AMA(nn.Module):
         # Make filter noise matrix (##IMPLEMENT GENERAL COVARIANCE LATER##)
         self.respNoiseVar = torch.tensor(respNoiseVar)
         self.respNoiseCov = torch.eye(self.nFiltAll) * self.respNoiseVar
-        ### Compute the conditional statistics of the stimuli
-        self.noiseType = noiseType
-        if self.noiseType == 'isotropic':
-            # Precompute some parameters
-            print('Computing weights for quadratic moments ...')
-            start = time.time()
-            self.set_isotropic_params(sAll=sAll,
-                    pixelSigma=torch.sqrt(torch.tensor(pixelCov)))
-            end = time.time()
-            print(f'Done in {end-start} seconds')
-            # Compute normalized noisy stimuli means
-            print('Computing normalized noisy stimuli means ...')
-            start = time.time()
-            self.stimMean = qm.isotropic_weighted_mean_batch(s=sAll,
-                    sigma=self.pixelSigma, invNormMean=self.invNormMean,
-                    ctgInd=ctgInd)
-            end = time.time()
-            print(f'Done in {end-start} seconds')
-            # Compute normalized noisy stimuli covs
-            print('Computing normalized noisy stimuli covariances ...')
-            start = time.time()
-            stimSecondM= qm.isotropic_ctg_secondM(s=sAll,
-                    sigma=self.pixelSigma, ctgInd=ctgInd,
-                    noiseW=self.smNoiseW, meanW=self.smMeanW)
-            self.stimCov = qm.secondM_2_cov(secondM=stimSecondM,
-                    mean=self.stimMean)
-            end = time.time()
-            print(f'Done in {end-start} seconds')
-            # Compute the second moment matrix of filter responses
-            if self.filtNorm == 'narrowband':
-                sAmp = qm.compute_amplitude_spectrum(s=sAll)
-            else:
-                sAmp = None
-            # Compute the mean of the responses
-            print('Computing response means ...')
-            start = time.time()
-            self.respMean = qm.isotropic_ctg_resp_mean(s=sAll,
-                    sigma=self.pixelSigma, f=self.f,
-                    normalization=self.filtNorm,
-                    ctgInd=ctgInd, sAmp=sAmp,
-                    invNormMean=self.invNormMean,
-                    classMean=self.stimMean)
-            end = time.time()
-            print(f'Done in {end-start} seconds')
-            # Compute the covariance of the responses
-            print('Computing response covariances ...')
-            start = time.time()
-            respSecondM = qm.isotropic_ctg_resp_secondM(s=sAll,
-                    sigma=self.pixelSigma, f=self.f,
-                    covPooling=self.respCovPooling,
-                    normalization=self.filtNorm,
-                    pooledCovs=stimSecondM, sAmp=sAmp,
-                    ctgInd=ctgInd, noiseW=self.smNoiseW, meanW=self.smMeanW)
-            # Convert second moment to covariance
-            self.respCovNoiseless = qm.secondM_2_cov(secondM=respSecondM,
-                    mean=self.respMean)
-            end = time.time()
-            print(f'Done in {end-start} seconds')
-        self.respCov = self.respCovNoiseless + \
-            self.respNoiseCov.repeat(self.nClasses, 1, 1)
-        # Add a noise generator with the input noise characteristics and nother
-        # for the filter noise
-        pixelCov = torch.eye(self.nDim) * self.pixelSigma**2
+        # Make random number generators for pixel and response noise
         self.stimNoiseGen = MultivariateNormal(loc=torch.zeros(self.nDim),
-                covariance_matrix=pixelCov)
+                covariance_matrix=self.pixelCov)
         self.respNoiseGen = MultivariateNormal(loc=torch.zeros(self.nFiltAll),
                 covariance_matrix=self.respNoiseCov)
+        ### Compute the conditional statistics of the stimuli
+        self.stimMean = self.compute_norm_stim_mean(s=sAll, ctgInd=ctgInd)
+        self.stimCov = self.compute_norm_stim_cov(s=sAll, ctgInd=ctgInd)
+        ### Compute the conditional statistics of the responses
+        self.respMean = self.compute_response_mean(s=sAll, ctgInd=ctgInd)
+        self.respCovNoiseless = self.compute_response_cov(s=sAll, ctgInd=ctgInd)  # without filter noise
+        self.respCov = self.respCovNoiseless + \
+            self.respNoiseCov.repeat(self.nClasses, 1, 1)  # with filter noise
 
 
-    #########################
     #########################
     ### BASIC UTILITY FUNCTIONS
     #########################
-    #########################
-
 
     def fixed_and_trainable_filters(self):
         """ Return a tensor with all the filters (fixed and trainable).
@@ -143,32 +90,61 @@ class AMA(nn.Module):
         return torch.cat((self.fFixed, self.f))
 
 
-    def set_isotropic_params(self, sAll, pixelSigma):
-        """ If stimulus noise is isotropic, set some parameters
-        related to stimulus noise, and precompute quantities that will
-        save compute time.
-        Arguments:
-        - sAll: Stimulus dataset used to compute statistics
-        - pixelSigma: Standard deviation of input noise
-        """
-        self.pixelSigma = pixelSigma
-        # Square mean of stimuli divided by standard deviation
-        self.nonCentrality = qm.compute_nc_parameter_batch(sAll, pixelSigma)
-        # Weighting factors for the mean outer product in second moment estimation
-        self.smMeanW = qm.compute_stimuli_hyp1f1(a=1, b=self.nDim/2+2,
-                nc=self.nonCentrality) * (1/(self.nDim+2))
-        # Weighting factors for the identity matrix in second moment estimation
-        self.smNoiseW = qm.compute_stimuli_hyp1f1(a=1, b=self.nDim/2+1,
-                nc=self.nonCentrality) * (1/self.nDim)
-        # Expected value of the inverse of the norm of each noisy stimulus
-        self.invNormMean = qm.inv_ncx_batch(mu=sAll, sigma=pixelSigma)
-
-
-    #########################
     #########################
     ### FUNCTIONS FOR UPDATING MODEL STATISTICS AND FILTERS
     #########################
-    #########################
+
+    # Methods for updating model statistics depend on the procedure to
+    # be used, and on the model's architecture. Define abstract methods
+    # that are implemented in the child classes.
+
+    @abstractmethod
+    def compute_norm_stim_mean(self, sAll, ctgInd):
+        pass
+
+#    @abstractmethod
+#    def compute_norm_stim_mean_individual(self, sAll):
+#        pass
+
+    @abstractmethod
+    def compute_norm_stim_cov(self, sAll, ctgInd):
+        pass
+
+#    @abstractmethod
+#    def compute_norm_stim_cov_individual(self, sAll):
+#        pass
+
+    @abstractmethod
+    def update_response_statistics(self):
+        pass
+
+
+    def compute_response_mean(self, s=None, ctgInd=None):
+        ### Add sAmp
+        fAll = self.fixed_and_trainable_filters()
+        if self.filtNorm == 'broadband':
+            respMean = torch.einsum('cd,kd->ck', self.stimMean, fAll)
+        else:
+            print('Error: Compute response mean only implemented for simplest case')
+            # To implement this, use the child-specific functions that return the
+            # individual mean of each stimulus. Then use the individual means,
+            # together with narrowband weighting to compute the
+            # response means
+        return respMean
+
+
+    def compute_response_cov(self, s=None, ctgInd=None):
+        ### Add sAmp
+        fAll = self.fixed_and_trainable_filters()
+        if self.filtNorm == 'broadband' and self.respCovPooling=='pre-filter':
+            respCov = torch.einsum('kd,cdb,mb->ckm', fAll, pooledCovs, fAll)
+        else:
+            print('Error: Compute response cov only implemented for simplest case')
+            # To implement this, use the child-specific functions that return the
+            # individual mean of each stimulus. Then use the individual means,
+            # together with narrowband weighting (or not) to compute the
+            # response means
+        return respMean
 
 
     def update_response_statistics(self, sAll, ctgInd, sAmp=None,
@@ -191,45 +167,18 @@ class AMA(nn.Module):
         fAll = self.fixed_and_trainable_filters()
         self.nFilt = self.f.shape[0]
         self.nFiltAll = fAll.shape[0]
-        # If new filters were added, expand the response noise covariance
+        # If new filters were manually added, expand the response noise covariance
         self.respNoiseCov = torch.eye(self.nFiltAll) * self.respNoiseVar
         # Update covariances, size nClasses*nFilt*nFilt
-        if self.filtNorm == 'narrowband' and sAmp is None:
-            sAmp = qm.compute_amplitude_spectrum(s=sAll)
-        else:
-            sAmp = None
-        if self.noiseType=="isotropic":
-            # Assign precomputed valeus, if same as initialization
-            if sameAsInit:
-                noiseW = self.smNoiseW
-                meanW = self.smMeanW
-                pooledCovs = self.stimCov
-                invNormMean = self.invNormMean
-            else:
-                noiseW = None
-                meanW = None
-                pooledCovs = None
-                invNormMean = None
-            # Compute second moment
-            respSecondM = qm.isotropic_ctg_resp_secondM(s=sAll,
-                    sigma=self.pixelSigma, f=fAll,
-                    covPooling=self.respCovPooling,
-                    normalization=self.filtNorm,
-                    pooledCovs=pooledCovs, sAmp=sAmp,
-                    ctgInd=ctgInd, noiseW=noiseW, meanW=meanW)
-            # Compute the mean of the responses
-            self.respMean = qm.isotropic_ctg_resp_mean(s=sAll,
-                    sigma=self.pixelSigma, f=fAll,
-                    normalization=self.filtNorm,
-                    ctgInd=ctgInd, sAmp=sAmp,
-                    invNormMean=invNormMean,
-                    classMean=self.stimMean)
-        if not (self.filtNorm == 'broadband' and self.respCovPooling == 'pre-filter'):
-            # Under these conditions, we just did the quadratic equation
-            # f' stimCov f. No need to convert second moment to covariance.
-            self.respCovNoiseless = respSecondM
-        else:
-            self.respCovNoiseless = qm.secondM_2_cov(respSecondM, self.respMean)
+        # Assign precomputed valeus, if same as initialization
+        if self.filtNorm == 'broadband':
+            self.respMean = self.compute_response_mean(s=sAll,
+                    ctgInd=ctgInd)
+            self.respCovNoiseless = self.compute_response_cov(s=sAll,
+                    ctgInd=ctgInd)
+        else if self.filtNorm == 'narrowband':
+            sAmp = compute_amplitude_spectrum(s)
+            print('Need to implement narrowband or post filter')
         # Add response noise to the stimulus-induced variability of responses
         self.respCov = self.respCovNoiseless + \
             self.respNoiseCov.repeat(self.nClasses, 1, 1)
@@ -237,6 +186,7 @@ class AMA(nn.Module):
                 covariance_matrix=self.respNoiseCov)
 
 
+    #### Consider making this child-specific
     def assign_filter_values(self, fNew, sAll, ctgInd, sAmp=None,
             sameAsInit=True):
         """ Overwrite the values to the model filters. Updates model
@@ -292,11 +242,11 @@ class AMA(nn.Module):
         - Rest of input parameters are as in update_response_statistics()
         """
         self.fFixed = fFixed.clone()
-        self.update_response_statistics(sAll=sAll, ctgInd=ctgInd,
-                sAmp=sAmp, sameAsInit=True)
+        self.update_response_statistics(sAll=sAll, ctgInd=ctgInd, sAmp=None,
+                sameAsInit=True)
 
 
-    def add_new_filters(self, nFiltNew, sAll, ctgInd, sAmp=None,
+    def add_new_filters(self, nFiltNew, sAll, ctgInd, sAmp=None
             sameAsInit=True):
         """ Add new, random filters to the filters already contained in
         the model. Adapt model statistics and parameters accordingly.
@@ -315,9 +265,7 @@ class AMA(nn.Module):
 
 
     #########################
-    #########################
     ### FUNCTIONS FOR GETTING MODEL OUTPUTS FOR INPUT STIMULI
-    #########################
     #########################
 
     def get_responses(self, s, addStimNoise=True, addRespNoise=True):
@@ -430,5 +378,106 @@ class AMA(nn.Module):
         elif method4est=='MMSE':
             estimates = torch.einsum('nc,c->n', posteriors, self.ctgVal)
         return estimates
+
+
+#####################
+#####################
+# CHILD CLASS, ISOTROPIC
+#####################
+#####################
+
+def Isotropic(AMA):
+    def __init__(self, sAll, ctgInd, nFilt=2, respNoiseVar=torch.tensor(0.02),
+            ctgVal=None, filtNorm='broadband', respCovPooling='post-filter',
+            pixelVar=torch.tensor(0)):
+        # Compute and save as attributes the quadratic-moments weights
+        # that are needed to compute statistics of stimuli under isotrpic noise
+        # and normalization
+        print('Computing weights for quadratic moments ...')
+        start = time.time()
+        self.set_isotropic_params(sAll=sAll,
+                pixelSigma=torch.sqrt(torch.tensor(pixelVar)))
+        end = time.time()
+        print(f'Done in {end-start} seconds')
+        # Convert the pixel variance (only one number needed because isotropic),
+        # into a pixel covariance matrix
+        self.pixelCov = torch.eye(sAll.shape[1]) * torch.tensor(pixelVar)
+        # Initialize parent class, which will fill in the rest of the statistics
+        super().__init__(sAll=sAll, ctgInd=ctgInd, nFilt=nFilt,
+                respNoiseVar=respNoiseVar, ctgVal=ctgVal, filtNorm=filtNorm,
+                respCovPooling=respCovPooling)
+
+
+    def set_isotropic_params(self, sAll, pixelSigma):
+        """ If stimulus noise is isotropic, set some parameters
+        related to stimulus noise, and precompute quantities that will
+        save compute time.
+        Arguments:
+        - sAll: Stimulus dataset used to compute statistics
+        - pixelSigma: Standard deviation of input noise
+        """
+        nDim = sAll.shape[1]
+        self.pixelSigma = pixelSigma
+        # Square mean of stimuli divided by standard deviation
+        self.nonCentrality = qm.compute_nc_parameter_batch(sAll, pixelSigma)
+        # Weighting factors for the mean outer product in second moment estimation
+        self.smMeanW = qm.compute_stimuli_hyp1f1(a=1, b=nDim/2+2,
+                nc=self.nonCentrality) * (1/(nDim+2))
+        # Weighting factors for the identity matrix in second moment estimation
+        self.smNoiseW = qm.compute_stimuli_hyp1f1(a=1, b=nDim/2+1,
+                nc=self.nonCentrality) * (1/nDim)
+        # Expected value of the inverse of the norm of each noisy stimulus
+        self.invNormMean = qm.inv_ncx_batch(mu=sAll, sigma=pixelSigma)
+
+
+    def compute_norm_stim_mean(s, ctgInd, sameAsInit=True):
+        """ Compute the mean of the noisy normalized stimuli across the
+        dataset. Uses some of the noise model properties
+        stored as attributes of the class.
+        """
+        print('Computing normalized noisy stimuli means ...')
+        start = time.time()
+        # If it's the same stimuli as initialization, use precomputed qm params
+        if sameAsInit:
+            invNormMean = self.invNormMean
+        else:
+            invNormMean = None
+        # Compute mean with isotrpic formula
+        self.stimMean = qm.isotropic_weighted_mean_batch(s=s,
+                sigma=self.pixelSigma, invNormMean=self.invNormMean,
+                ctgInd=ctgInd)
+        end = time.time()
+        print(f'Done in {end-start} seconds')
+
+
+    def compute_norm_stim_cov(s, ctgInd, sameAsInit=True):
+        """ Compute the covariance across the stimulus dataset for the noisy
+        normalized stimuli. Uses some of the noise model properties
+        stored as attributes of the class.
+        """
+        print('Computing normalized noisy stimuli covariances ...')
+        start = time.time()
+        if sameAsInit:
+            # If same stimuli as initialization, use stored
+            # stim mean, and precomputed qm weigths
+            stimSecondM= qm.isotropic_ctg_secondM(s=s,
+                    sigma=self.pixelSigma, ctgInd=ctgInd,
+                    noiseW=self.smNoiseW, meanW=self.smMeanW)
+            self.stimCov = qm.secondM_2_cov(secondM=stimSecondM,
+                    mean=self.stimMean)
+        else:
+            # If not same stimuli as initialization, compute their
+            # mean, and don't use precomputed qm weigths
+            stimMean = qm.isotropic_weighted_mean_batch(s=s,
+                    sigma=self.pixelSigma, ctgInd=ctgInd)
+            stimSecondM= qm.isotropic_ctg_secondM(s=s,
+                    sigma=self.pixelSigma, ctgInd=ctgInd)
+            self.stimCov = qm.secondM_2_cov(secondM=stimSecondM,
+                    mean=self.stimMean)
+        end = time.time()
+        print(f'Done in {end-start} seconds')
+
+    ### Implement functions that return the mean and cov of the
+    # individual stimuli, to use in narrowband normalization
 
 
