@@ -17,9 +17,6 @@ import time
 #####################
 
 class AMA(ABC, nn.Module):
-    #def __init__(self, sAll, ctgInd, nFilt=2, respNoiseVar=torch.tensor(0.02),
-    #        pixelCov=torch.tensor(0), noiseType='isotropic', ctgVal=None,
-    #        filtNorm='broadband', respCovPooling='post-filter'):
     def __init__(self, sAll, ctgInd, nFilt=2, respNoiseVar=torch.tensor(0.02),
             ctgVal=None, filtNorm='broadband', respCovPooling='pre-filter'):
         """ AMA model object.
@@ -99,7 +96,7 @@ class AMA(ABC, nn.Module):
     # that are implemented in the child classes.
 
     @abstractmethod
-    def compute_norm_stim_mean(self, sAll, ctgInd):
+    def compute_norm_stim_mean(self, s, ctgInd):
         pass
 
 #    @abstractmethod
@@ -107,7 +104,7 @@ class AMA(ABC, nn.Module):
 #        pass
 
     @abstractmethod
-    def compute_norm_stim_cov(self, sAll, ctgInd):
+    def compute_norm_stim_cov(self, s, ctgInd):
         pass
 
 #    @abstractmethod
@@ -176,7 +173,7 @@ class AMA(ABC, nn.Module):
                     ctgInd=ctgInd)
             self.respCovNoiseless = self.compute_response_cov(s=sAll,
                     ctgInd=ctgInd)
-        else if self.filtNorm == 'narrowband':
+        elif self.filtNorm == 'narrowband':
             sAmp = compute_amplitude_spectrum(s)
             print('Need to implement narrowband or post filter')
         # Add response noise to the stimulus-induced variability of responses
@@ -246,7 +243,7 @@ class AMA(ABC, nn.Module):
                 sameAsInit=True)
 
 
-    def add_new_filters(self, nFiltNew, sAll, ctgInd, sAmp=None
+    def add_new_filters(self, nFiltNew, sAll, ctgInd, sAmp=None,
             sameAsInit=True):
         """ Add new, random filters to the filters already contained in
         the model. Adapt model statistics and parameters accordingly.
@@ -386,7 +383,7 @@ class AMA(ABC, nn.Module):
 #####################
 #####################
 
-def Isotropic(AMA):
+class Isotropic(AMA):
     def __init__(self, sAll, ctgInd, nFilt=2, respNoiseVar=torch.tensor(0.02),
             ctgVal=None, filtNorm='broadband', respCovPooling='post-filter',
             pixelVar=torch.tensor(0)):
@@ -477,7 +474,7 @@ def Isotropic(AMA):
         end = time.time()
         print(f'Done in {end-start} seconds')
 
-    ### Implement functions that return the mean and cov of the
-    # individual stimuli, to use in narrowband normalization
+### Implement functions that return the mean and cov of the
+# individual stimuli, to use in narrowband normalization
 
 
