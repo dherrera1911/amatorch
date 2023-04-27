@@ -39,6 +39,7 @@ from torch.utils.data import TensorDataset, DataLoader
 import ama_library.ama_class as cl
 import ama_library.utilities as au
 
+
 # <codecell>
 ##############
 #### LOAD AMA DATA
@@ -88,6 +89,7 @@ learningRate = 0.01
 lrStepSize = 5
 batchSize = 512
 
+
 # Put data into Torch data loader tools
 trainDataset = TensorDataset(s, ctgInd)
 # Batch loading and other utilities 
@@ -109,8 +111,8 @@ elapsedTimes = [None] * nModels  # List with the training times of each model
 filters = [None] * nModels  # List with the filters learned for each model
 # Loop over the number of models to train
 for n in range(nModels):
-    ama = cl.AMA(sAll=s, nFilt=2, ctgInd=ctgInd, respNoiseVar=respNoiseVar,
-            pixelCov=pixelNoiseVar, ctgVal=ctgVal, respCovPooling='pre-filter',
+    ama = cl.Isotropic(sAll=s, nFilt=2, ctgInd=ctgInd, respNoiseVar=respNoiseVar,
+            pixelVar=pixelNoiseVar, ctgVal=ctgVal, respCovPooling='pre-filter',
             filtNorm='broadband')
     loss[n], elapsedTimes[n] = au.fit_by_pairs(nEpochs=nEpochs, model=ama,
         trainDataLoader=trainDataLoader, lossFun=lossFun, opt_fun=opt_fun,

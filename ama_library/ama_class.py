@@ -99,40 +99,20 @@ class AMA(ABC, nn.Module):
     def compute_norm_stim_mean(self, s, ctgInd):
         pass
 
-#    @abstractmethod
-#    def compute_norm_stim_mean_individual(self, sAll):
-#        pass
 
     @abstractmethod
     def compute_norm_stim_cov(self, s, ctgInd):
         pass
 
+
+    @abstractmethod
+    def compute_response_mean(self, s, ctgInd):
+        pass
+
+
     @abstractmethod
     def compute_response_cov(self, s, ctgInd):
         pass
-
-
-#    @abstractmethod
-#    def compute_norm_stim_cov_individual(self, sAll):
-#        pass
-
-    @abstractmethod
-    def update_response_statistics(self):
-        pass
-
-
-    def compute_response_mean(self, s=None, ctgInd=None):
-        ### Add sAmp
-        fAll = self.fixed_and_trainable_filters()
-        if self.filtNorm == 'broadband':
-            respMean = torch.einsum('cd,kd->ck', self.stimMean, fAll)
-        else:
-            print('Error: Compute response mean only implemented for simplest case')
-            # To implement this, use the child-specific functions that return the
-            # individual mean of each stimulus. Then use the individual means,
-            # together with narrowband weighting to compute the
-            # response means
-        return respMean
 
 
     def update_response_statistics(self, sAll, ctgInd, sAmp=None,
@@ -160,10 +140,8 @@ class AMA(ABC, nn.Module):
         # Update covariances, size nClasses*nFilt*nFilt
         # Assign precomputed valeus, if same as initialization
         if self.filtNorm == 'broadband':
-            self.respMean = self.compute_response_mean(s=sAll,
-                    ctgInd=ctgInd)
-            self.respCovNoiseless = self.compute_response_cov(s=sAll,
-                    ctgInd=ctgInd)
+            self.respMean = self.compute_response_mean(s=sAll, ctgInd=ctgInd)
+            self.respCovNoiseless = self.compute_response_cov(s=sAll, ctgInd=ctgInd)
         elif self.filtNorm == 'narrowband':
             sAmp = compute_amplitude_spectrum(s)
             print('Need to implement narrowband or post filter')
@@ -368,32 +346,32 @@ class AMA(ABC, nn.Module):
         return estimates
 
 
-    def compute_stimulus_filter_similarity(self, s, sAmp=None):
-        """ Compute the similarity between each stimulus and the model
-        filters, according to the similarity type indicated in model
-        initialization.
-        #
-        Arguments:
-        - s: Stimulus matrix. (nStim x nDim)
-        - sAmp: Optional to save compute. Pre-computed amplitude spectrum
-        of the stimulus dataset. Should be computed with
-        'qm.compute_amplitude_spectrum'. (nStim x nDim)
-        #
-        Output:
-        - similarity: Similarity matrix between each stimulus and
-        each filter. (nStim x nFilt)"""
-        ### TO IMPLEMENT:
-        # Implement signal-space similarity computing
-        if sAmp is None:
-            sAmp = qm.compute_amplitude_spectrum(s)
-        fAll = self.fixed_and_trainable_filters()
-        fAmp = qm.compute_amplitude_spectrum(fAll)
-        # Get the normalization factor, i.e. inverse product of norms
-        normFactor = torch.einsum('n,k->nk', 1/sAmp.norm(dim=1),
-                1/fAmp.norm(dim=1))
-        # Compute the Amplitude spectrum similarity
-        similarity = torch.einsum('nd,kd,nk->nk', sAmp, fAmp, normFactor)
-        return similarity
+#    def compute_stimulus_filter_similarity(self, s, sAmp=None):
+#        """ Compute the similarity between each stimulus and the model
+#        filters, according to the similarity type indicated in model
+#        initialization.
+#        #
+#        Arguments:
+#        - s: Stimulus matrix. (nStim x nDim)
+#        - sAmp: Optional to save compute. Pre-computed amplitude spectrum
+#        of the stimulus dataset. Should be computed with
+#        'qm.compute_amplitude_spectrum'. (nStim x nDim)
+#        #
+#        Output:
+#        - similarity: Similarity matrix between each stimulus and
+#        each filter. (nStim x nFilt)"""
+#        ### TO IMPLEMENT:
+#        # Implement signal-space similarity computing
+#        if sAmp is None:
+#            sAmp = qm.compute_amplitude_spectrum(s)
+#        fAll = self.fixed_and_trainable_filters()
+#        fAmp = qm.compute_amplitude_spectrum(fAll)
+#        # Get the normalization factor, i.e. inverse product of norms
+#        normFactor = torch.einsum('n,k->nk', 1/sAmp.norm(dim=1),
+#                1/fAmp.norm(dim=1))
+#        # Compute the Amplitude spectrum similarity
+#        similarity = torch.einsum('nd,kd,nk->nk', sAmp, fAmp, normFactor)
+#        return similarity
 
 
 #####################
@@ -460,33 +438,12 @@ class Isotropic(AMA):
         else:
             invNormMean = None
         # Compute mean with isotrpic formula
-        stimMean = qm.isotropic_weighted_mean_batch(s=s,
+        stimMean = qm.isotropic_mean_batch(s=s,
                 sigma=self.pixelSigma, invNormMean=invNormMean,
                 ctgInd=ctgInd)
         end = time.time()
         print(f'Done in {end-start} seconds')
         return stimMean
-
-
-#    def compute_norm_stim_mean_individual(self, s, ctgInd, sameAsInit=True):
-#        """ Compute the mean of each noisy normalized stimulus in
-#        the dataset (as opposed to the mean of the dataset). Uses some
-#        of the noise model properties stored as attributes of the class.
-#        """
-#        print('Computing individual normalized noisy stimuli means ...')
-#        start = time.time()
-#        # If it's the same stimuli as initialization, use precomputed qm params
-#        if sameAsInit:
-#            invNormMean = self.invNormMean
-#        else:
-#            invNormMean = None
-#        # Compute mean with isotrpic formula
-#        stimMean = qm.isotropic_weighted_mean_batch(s=s,
-#                sigma=self.pixelSigma, invNormMean=invNormMean,
-#                ctgInd=ctgInd)
-#        end = time.time()
-#        print(f'Done in {end-start} seconds')
-#        return stimMean
 
 
     def compute_norm_stim_cov(self, s, ctgInd, sameAsInit=True):
@@ -507,7 +464,7 @@ class Isotropic(AMA):
         else:
             # If not same stimuli as initialization, compute their
             # mean, and don't use precomputed qm weigths
-            stimMean = qm.isotropic_weighted_mean_batch(s=s,
+            stimMean = qm.isotropic_mean_batch(s=s,
                     sigma=self.pixelSigma, ctgInd=ctgInd)
             stimSecondM = qm.isotropic_ctg_secondM(s=s,
                     sigma=self.pixelSigma, ctgInd=ctgInd)
@@ -518,34 +475,112 @@ class Isotropic(AMA):
         return stimCov
 
 
-    def compute_response_cov(self, s=None, ctgInd=None, sAmp=None,
-            sameAsInit=True):
-        ### Add sAmp
+    def compute_response_mean(self, s=None, ctgInd=None, sAmp=None, sameAsInit=True):
+        """ Compute the mean of the filter responses to the noisy stimuli for each class.
+        Note that this are the noiseless filters.
+        #
+        Arguments:
+            - s: stimulus matrix for which to compute the mean responses.
+                If normalization is broadband and sameAsInit=True, it is
+                not required. (nStim x nDim)
+            - ctgInd: Vector with index categories for the stimuli in i. (length nStim)
+            - sAmp: Optional to save compute when normalization='narrowband'.
+                Amplitude spectrum of NORMALIZED stimuli. Should be computed with
+                'qm.compute_amplitude_spectrum(s)' (nStim x nDim)
+            - sameAsInit: Logical indicating whether it is the same stimulus set
+                as for initialization. Indicates whether to use precomputed parameters.
+        Outputs:
+            - respMean: Mean responses of each model filter to the noisy normalized
+            stimuli of each class. (nClasses x nFilt)
+        """
         fAll = self.fixed_and_trainable_filters()
+        if self.filtNorm=='broadband':
+            if sameAsInit:
+                respMean = torch.einsum('cd,kd->ck', self.stimMean, fAll)
+            else:
+                if s is None:
+                    raise ValueError('''Error: If not same stimuli as initialization,
+                            you need to provide new stimuli as input''')
+                respMean = qm.isotropic_ctg_resp_mean(s=s, sigma=self.pixelSigma,
+                        f=fAll, normalization=self.filtNorm, ctgInd=ctgInd)
+        elif self.filtNorm=='narrowband':
+            if sameAsInit:
+                invNormMean = self.invNormMean
+            else:
+                invNormMean = None
+            respMean = isotropic_ctg_resp_mean(s=s, sigma=self.pixelSigma, f=fAll,
+                    normalization=self.filtNorm, ctgInd=ctgInd, sAmp=sAmp,
+                    invNormMean=invNormMean)
+        return respMean
+
+
+    def compute_response_cov(self, s=None, ctgInd=None, sAmp=None, sameAsInit=True):
+        """ Compute the mean of the filter responses to the noisy stimuli for each class.
+        Note that this are the noiseless filters.
+        #
+        Arguments:
+            - s: stimulus matrix for which to compute the mean responses.
+                If normalization is broadband and sameAsInit=True, it is
+                not required. (nStim x nDim)
+            - ctgInd: Vector with index categories for the stimuli in i. (length nStim)
+            - sAmp: Optional to save compute when normalization='narrowband'.
+                Amplitude spectrum of NORMALIZED stimuli. Should be computed with
+                'qm.compute_amplitude_spectrum(s)' (nStim x nDim)
+            - sameAsInit: Logical indicating whether it is the same stimulus set
+                as for initialization. Indicates whether to use precomputed parameters.
+        Outputs:
+            - respCov: Covariance of filter responses to the noisy normalized
+            stimuli of each class. (nClasses x nFilt x nFilt)
+        """
+        fAll = self.fixed_and_trainable_filters()
+        ### Simplest method, only works for broadband normalization
         if self.respCovPooling=='pre-filter':
-            ## pre-filter pooling only accepts broadband normalization
             if self.filtNorm=='narrowband':
                 raise ValueError('''Error: pre-filter pooling can only
                 take broadband normalization''')
-            respCov = torch.einsum('kd,cdb,mb->ckm', fAll, self.stimCov, fAll)
-        else if self.respCovPooling=='post-filter':
-#            # If not same as init, compute weightings of isotropic formula
-#            if not sameAsInit:
-#                nc, meanW, noiseW = qm.compute_isotropic_formula_weights(s=s,
-#                        sigma=self.pixelSigma)
-#            else if sameAsInit:
-#                nc = self.nonCentrality
-#                meanW = self.smMeanW
-#                noiseW = self.smNoiseW
-#            # First filter the stimuli to get the responses
-#            responses = torch.einsum('kd,nd->nk', fAll, s)
-#            if self.filtNorm=='broadband':
-                raise ValueError('''Error: Response covariances only
-                        implemented for simplest case for now''')
-            # To implement this, use the child-specific functions that return the
-            # individual mean of each stimulus. Then use the individual means,
-            # together with narrowband weighting (or not) to compute the
-            # response means
+            if sameAsInit:
+                # If sameAsInit, use precomputed stim covariances
+                respCov = torch.einsum('kd,cdb,mb->ckm', fAll, self.stimCov, fAll)
+            else:
+                if s is None:
+                    raise ValueError('''Error: If not same stimuli as initialization,
+                            you need to provide new stimuli as input''')
+                # If not sameAsInit, use compute new stim covariances
+                stimCov = self.compute_norm_stim_cov(s=s, ctgInd=ctgInd,
+                        sameAsInit=sameAsInit)
+                respCov = torch.einsum('kd,cdb,mb->ckm', fAll, stimCov, fAll)
+        ### More complex, but more accurate method
+        elif self.respCovPooling=='post-filter':
+            # Get the parameters needed to weight different stimuli
+            if sameAsInit:
+                # If these are the initialization stimuli, use precomputed parameters
+                meanW = self.smMeanW
+                noiseW = self.smNoiseW
+            else:
+                nc, meanW, noiseW = qm.compute_isotropic_formula_weights(s=s,
+                        sigma=self.pixelSigma)
+            if self.filtNorm=='narrowband':
+                # If narrowband, get the parameters needed to implement normalization
+                if sAmp is not None:
+                    # Compute similarity scores
+                    similarities = qm.compute_amplitude_similarity( s=sAmp, f=fAll,
+                            stimSpace='fourier', filterSpace='signal')
+                    normFactors = 1/similarities
+                else:
+                    normFactors = None
+            ### Compute the second moment matrix
+            respSM = qm.isotropic_ctg_resp_secondM(s=s, f=fAll, sigma=self.pixelSigma,
+                    noiseW=noiseW, meanW=meanW, normalization=self.filtNorm,
+                    ctgInd=ctgInd, normFactors=normFactors)
+            # Convert second moment matrix to covariance matrix using response means
+            if sameAsInit:
+                print('''Warning: Response covariance updating is assuming
+                        response means were already updated''')
+                stimCov = qm.secondM_2_cov(secondM=respSM, mean=self.respMean)
+            else:
+                respMean = self.compute_response_mean(s=s, ctgInd=ctgInd,
+                        sAmp=sAmp, sameAsInit=sameAsInit)
+                respCov = qm.secondM_2_cov(secondM=respSM, mean=respMean)
         return respCov
 
 

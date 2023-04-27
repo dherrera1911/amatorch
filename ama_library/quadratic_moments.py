@@ -81,12 +81,12 @@ def compute_isotropic_formula_weights(s, sigma):
     """
     nDim = s.shape[1]
     # Square mean of stimuli divided by standard deviation
-    nonCentrality = compute_nc_parameter_batch(s, sigma)
+    nonCentrality = qm.compute_nc_parameter_batch(s, sigma)
     # Weighting factors for the mean outer product in second moment estimation
-    smMeanW = compute_stimuli_hyp1f1(a=1, b=nDim/2+2,
+    smMeanW = qm.compute_stimuli_hyp1f1(a=1, b=nDim/2+2,
             nc=nonCentrality) * (1/(nDim+2))
     # Weighting factors for the identity matrix in second moment estimation
-    smNoiseW = compute_stimuli_hyp1f1(a=1, b=nDim/2+1,
+    smNoiseW = qm.compute_stimuli_hyp1f1(a=1, b=nDim/2+1,
             nc=nonCentrality) * (1/nDim)
     return nonCentrality, smMeanW, smNoiseW
 
@@ -190,7 +190,8 @@ def isotropic_individual_stim_mean(s, sigma=0.1, invNorm=None):
 # Compute the expected value of noisy normalized stimulus set
 # by doing a weighted combination of the stimuli given
 # precomputed weighting values
-def isotropic_weighted_mean_batch(s, sigma, invNormMean=None, ctgInd=None):
+# previously called isotropic_weighted_mean_batch
+def isotropic_mean_batch(s, sigma, invNormMean=None, ctgInd=None):
     """ Compute the expected value of the normalized noisy stimuli
     across the dataset, given by stimuli s and isotropic noise with
     sigma standard deviation.
@@ -204,7 +205,7 @@ def isotropic_weighted_mean_batch(s, sigma, invNormMean=None, ctgInd=None):
         given as input, it is ignored.
     invNormMean: Optional to save compute. Expected inverse norm
         for each stimulus. (nStim)
-    ctgInd: Vector with index categories for the stimuli in i
+    ctgInd: Vector with index categories for the stimuli in s
     """
     df = int(s.shape[1])
     nStim = s.shape[0]
@@ -291,7 +292,7 @@ def isotropic_ctg_secondM(s, sigma, noiseW=None, meanW=None, ctgInd=None,
     - meanW: Weight of mean outer product for each row in s. Obtained
         as hyp1f1(1; df/2+2, -(||s/sigma||**2)/2).
         If empty, it is computed inside this function. Vector, length = nStim
-    - ctgInd: Vector with index categories for the stimuli in i
+    - ctgInd: Vector with index categories for the stimuli in s
     - normFactor: normalization factor given by filter-stimulus phase
         independent similarity. Either a scalar, or a vector length=nStim.
     #
@@ -342,7 +343,7 @@ def isotropic_ctg_secondM(s, sigma, noiseW=None, meanW=None, ctgInd=None,
 
 
 def isotropic_ctg_resp_mean(s, sigma, f, normalization='broadband',
-        ctgInd=None, sAmp=None, invNormMean=None, classMean=None):
+        ctgInd=None, sAmp=None, invNormMean=None):
     """Compute analytically the mean of filter responses to the noisy
         normalized stimuli of each category.
     Inputs:
@@ -359,8 +360,6 @@ def isotropic_ctg_resp_mean(s, sigma, f, normalization='broadband',
     - invNormMean: Optional to save compute (broadband and narrowband).
         The expected values of the inverse of the norm for each stimulus s.
         Should be computed with the inv_ncx functions. (nStim)
-    - classMean: Optional to save compute when normalization='broadband'.
-        Stimulus category means. (nClasses x nDim)
     Outputs:
     - respMean: Response mean vector for each category. (nClasses x nFilt)
     """
@@ -377,41 +376,73 @@ def isotropic_ctg_resp_mean(s, sigma, f, normalization='broadband',
         print('Error, normalization is neither narrowband nor broadband')
         return
     # Computation depends on normalization type
-    # 2) If narrowband, compute similarity scores and do weighted 
-    #  class stimulus means
-    if normalization == 'narrowband':
+    if normalization == 'broadband':
+        # 1) If broadband, a) calculate normalized stimulus means,
+        # b) apply filters to the means
+        #
+        # a) Compute stimuli means
         if invNormMean is None:
             invNormMean = inv_ncx_batch(mu=s, sigma=sigma)
+        stimMean = isotropic_mean_batch(s=s, sigma=sigma,
+                invNormMean=invNormMean, ctgInd=ctgInd)
+        # b) Apply filters to the means
+        respMean = torch.einsum('cd,kd->ck', stimMean, f)
+    elif normalization == 'narrowband':
+        # 2) If narrowband, a) Calculate E(1/||X||),
+        # b) Get filter responses to each normalized stimulus,
+        # c) Compute similarity scores, d) Weight responses by similarity
+        # scores, e) Compute the means of the responses
+        # a) Get E(1/||X||)
+        if invNormMean is None:
+            invNormMean = inv_ncx_batch(mu=s, sigma=sigma)
+        # b) Compute responses
+        # Compute filter responses to normalized stimuli
+        resp = torch.einsum('nd,kd,n->nk', s, f, invNormMean)
+        # c) Compute similarities and normalization factor
         if sAmp is not None:
-            # Compute similarity scores with input s amplitudes
-            similarityScore = compute_amplitude_similarity(s=sAmp,
+            similarities = compute_amplitude_similarity(s=sAmp,
                     f=f, stimSpace='fourier', filterSpace='signal')
         else:
-            # Compute similarity scores
-            similarityScore = compute_amplitude_similarity(
+            similarities = compute_amplitude_similarity(
                     s=torch.multiply(s, invNormMean.unsqueeze(1)),
                     f=f, stimSpace='signal', filterSpace='signal')
+        normFactors = 1/similarities
+        # d) Scale filter responses by stimulus similarity
+        respScaled = resp * normFactors  # element-wise multiplication
         respMean = torch.zeros(nClasses, nFilt)
-        for fn in range(nFilt):
-            stimWeights = invNormMean * 1/similarityScore[:,fn]
-            classMean = isotropic_weighted_mean_batch(s=s, sigma=sigma,
-                    invNormMean=stimWeights, ctgInd=ctgInd)
-            respMean[:,fn] = torch.einsum('cd,d->c', classMean, f[fn,:])
-    # 2) If broadband, only the regular class stimulus means are needed,
-    # and they are the same for each filter
-    elif normalization == 'broadband':
-        if classMean is None:
-            if invNormMean is None:
-                invNormMean = inv_ncx_batch(mu=s, sigma=sigma)
-            classMean = isotropic_weighted_mean_batch(s=s, sigma=sigma,
-                    invNormMean=invNormMean, ctgInd=ctgInd)
-        respMean = torch.einsum('cd,kd->ck', classMean, f)
+        for cl in range(nClasses):
+            levelInd = [i for i, j in enumerate(ctgInd) if j == cl]
+            respMean[cl,:] = torch.mean(respScaled[levelInd,:], dim=0)
     return respMean
 
 
 
-def isotropic_ctg_resp_secondM_dev(s, f, sigma, noiseW, meanW,
+def isotropic_ctg_resp_secondM(s, f, sigma, noiseW, meanW,
         normalization='broadband', ctgInd=None, normFactors=None):
+    """Compute the second moment matrix of filter responses to
+    the noisy (isotropic noise) normalized stimuli of each category, using
+    an analytic formula.
+    #
+    Inputs:
+    - s: Stimuli dataset (nStim x nDim)
+    - f: Filters (nFilt x nDim)
+    - sigma: Standard deviation of the isotropic stimulus noise
+    - noiseW: Vector with weights of the noise term in the analytic formulas
+        (length nStim)
+    - meanW: Vector with weights of the mean term in the analytic formulas
+        (length nStim)
+    - normalization: What normalization regime to use for the filter responses.
+        String that is either 'broadband' or 'narrowband'.
+    - ctgInd: Vector with category indices of stimuli s (length nStim).
+        If not given, all stimuli are assigned to the same class.
+    - normFactors: Factor by which to multiply the respone of each filter
+        to each stimulus to implement narrowband normalization. It is
+        given by 1/similarity for each filter/stimulus. (nStim x nFilt)
+    #
+    Outputs:
+    - expectedSM: Tensor with the second moment matrix of the filter
+        responses for each category. (nClasses x nFilt x nFilt)
+    """
     # Fill up vectors ctgInd with irrelevant values if not given
     nStim = s.shape[0]
     if ctgInd is None:
@@ -427,14 +458,14 @@ def isotropic_ctg_resp_secondM_dev(s, f, sigma, noiseW, meanW,
         if normFactors is None:
             #### Add correction by inverse mean of s
             # Approximate normalization factor of s/||s+\sigma||
-            invNormMean = inv_ncx_batch(mu=s, sigma=sigma)
+            invNormMean = qm.inv_ncx_batch(mu=s, sigma=sigma)
             # Compute similarity scores
-            similarities = compute_amplitude_similarity(
+            similarities = qm.compute_amplitude_similarity(
                     s=torch.multiply(s, invNormMean.unsqueeze(1)),
                     f=f, stimSpace='signal', filterSpace='signal')
             normFactors = 1/similarities
-        # Adjust each response by the normalization factor
-        responses = torch.einsum('nk,nk->nk', responses, normFactors)
+            # Adjust each response by the normalization factor
+            resp = torch.einsum('nk,nk->nk', resp, normFactors)
     # Proceed the same for narrowband and broadband, after response weighting
     nClasses = np.unique(ctgInd).size
     expectedSM = torch.zeros(nClasses, nFilt, nFilt)
@@ -446,152 +477,156 @@ def isotropic_ctg_resp_secondM_dev(s, f, sigma, noiseW, meanW,
         meanWStim = meanW[levelInd]  # Vector with scaling fators for each stimulus
         # Get the noise term
         # First, compute the matrix of correlation of normalization factors
-        normFactorsCl = normFactors[levelInd,:] * \
-            torch.sqrt(noiseW[levelInd]).unsqueeze(1)
-        normCorr = torch.einsum('nk,nm->km', normFactorsCl, normFactorsCl)
-        noiseTerm = normCorr * filterInnerProds
+        if normalization=='narrowband':
+            normFactorsCl = normFactors[levelInd,:] * \
+                torch.sqrt(noiseW[levelInd]).unsqueeze(1)
+            # Correlation of normalization factors
+            normCorr = torch.einsum('nk,nm->km', normFactorsCl, normFactorsCl)
+        else:
+            normCorr = torch.ones((nFilt, nFilt))
+        noiseTerm = normCorr * filterInnerProds * 1/nStimLevel
         # Scale each response by the normalizing factor
-        respScales = torch.sqrt(meanWStim/(nStimLevel))/sigma
-        scaledResp = torch.einsum('nd,n->nd', responses[levelInd,:], respScales)
-        expectedSM[cl,:,:] = torch.einsum('nd,nb->db', scaledResp, scaledResp) + \
+        scalingFactors = torch.sqrt(meanWStim/(nStimLevel))/sigma
+        respScaled = torch.einsum('nd,n->nd', resp[levelInd,:], scalingFactors)
+        expectedSM[cl,:,:] = torch.einsum('nd,nb->db', respScaled, respScaled) + \
                 noiseTerm
     return expectedSM
 
 
-def isotropic_ctg_resp_secondM(s, sigma, f, covPooling='pre-filter',
-        normalization='broadband', pooledCovs=None, sAmp=None,
-        ctgInd=None, noiseW=None, meanW=None):
-    """Compute analytically the second moment matrix of filter responses to
-    the noisy normalized stimuli of each category. Do this by applying the
-    quadratic form f' stimCov f, where stimCov contains the second moment
-    matrices of the stimuli in s.
-    #
-    Inputs:
-    - s: Stimuli dataset (nStim x nDim)
-    - sigma: Standard deviation of the isotropic stimulus noise (for
-        conditions were 1) normalization='broadband' and covPooling='pre-filter',
-        or 2) noiseW and meanW are not None, it is not needed, and thus ignored)
-    - f: Filters (nFilt x nDim)
-    - covPooling: String indicating whether the step of pooling covariances
-    across stimuli is done for the raw pixels covariances ('pre-filter') or
-    for the response covariances ('post-filter'). 'pre-filter' is not
-    exact, but is usually much faster. 'post-filter' is exact, but much
-    slower.
-    - pooledCovs: Pixel covariances of noisy-normalized stimuli for each
-        category. Optional argument that saves compute time for the
-        case normalization='broadband' and covPooling='pre-filter'.
-        (nClasses x nDim x nDim)
-    - sAmp: Fourier amplitude spectra of the stimuli. Optional
-        argument to save time in the cases where normalization='narrowband'
-    - ctgInd: Vector with category indices of stimuli s (length nStim).
-        If not given, all stimuli are assigned to the same class.
-    - noiseW: Vector with weights of the noise factor in the stimulus
-        covariance matrices formula. Optional parameter to save compute.
-        (length nStim)
-    - meanW: Vector with weights of the mean factor in the stimulus
-        covariance matrices formula. Optional parameter to save compute.
-        (length nStim)
-    #
-    Outputs:
-    - filterCov: Tensor with the covariance matrix of the filter responses
-        for each category. (nClasses x nFilt x nFilt)
-    """
-    # 1) Housekeeping
-    nStim = s.shape[0]
-    # Adjust dimensions of filters to be row vectors
-    if f.dim() == 1:
-        f = f.unsqueeze(0)
-    nFilt = f.shape[0]
-    if ctgInd is None:
-        ctgInd = torch.zeros(nStim)
-    nClasses = len(ctgInd.unique())
-    if normalization not in ['broadband', 'narrowband']:
-        print('Error, normalization is neither narrowband nor broadband')
-        return
-    # 2) Get the similarity scores
-    if normalization == 'narrowband':
-        if sAmp is not None:
-            # Compute similarity scores with input s amplitudes
-            similarityScores = compute_amplitude_similarity(sAmp,
-                    f, stimSpace='fourier', filterSpace='signal')
-        else:
-            # Approximate normalization factor of s/||s+\sigma||
-            invNormMean = inv_ncx_batch(mu=s, sigma=sigma)
-            # Compute similarity scores
-            similarityScores = compute_amplitude_similarity(
-                    s=torch.multiply(s, invNormMean.unsqueeze(1)),
-                    f=f, stimSpace='signal', filterSpace='signal')
-    else:
-        similarityScores = torch.ones(nStim, nFilt)
-    # 3) Compute the filter covariances with specified pooling method
-    # ** 3.1) Option 1**: pre filter pooling and broadband normalization.
-    # Simples option, just involves multiplying filters and
-    # category stimulus second moment matrices
-    if covPooling=='pre-filter' and normalization=='broadband':
-        if pooledCovs is None:
-            pooledCovs = isotropic_ctg_secondM(s=s, sigma=sigma,
-                    noiseW=noiseW, meanW=meanW, ctgInd=ctgInd)
-        filterCov = torch.einsum('kd,cdb,mb->ckm', f, pooledCovs, f)
-    else:
-        filterCov = torch.zeros((nClasses, nFilt, nFilt))
-        ## All options other than Option 1 involve pair-specific weigthing
-        # of the individual stimulus covariances. We first compute all
-        # the stimulus covariances so these are not re-computed for each
-        # different pair of filters. We iterate over classes to avoid using
-        # too much memory all at once
-        for cc in range(nClasses):
-            levelInd = [i for i, j in enumerate(ctgInd) if j == cc]
-            # If weigths are precomputed, get category weights here
-            stimNoiseW = None
-            if not noiseW is None:
-                stimNoiseW = noiseW[levelInd]
-            stimMeanW = None
-            if not meanW is None:
-                stimMeanW = meanW[levelInd]
-            # Get covariance of each stimulus in class
-            stimSM = isotropic_individual_stim_secondM(s=s[levelInd,:],
-                   sigma=sigma, noiseW=stimNoiseW, meanW=stimMeanW)
-            # Now with these covariances for this class, cycle over filters
-            # doing the appropriate filter-pair-specific weightings and combinations
-            for k in range(f.shape[0]):
-                for m in range(k+1):
-                    # narrowband weight
-                    pairWeight = similarityScores[levelInd,k] * \
-                            similarityScores[levelInd,m]
-                    nStimCtg = len(levelInd)
-                    # narrowband and 1/stim for computing mean
-                    normFactor = 1/(pairWeight*nStimCtg)
-                    fk = f[k,:]
-                    fm = f[m,:]
-                    if covPooling == 'pre-filter' and normalization=='narrowband':
-                        # Option 2: Add filter-pair-specific narrowband weights
-                        # to the stimulus second moments for this class,
-                        # and pool the, together. Then filter the pooled
-                        # second moment matrix.
-                        #
-                        # Pooled second-moment matrix for this category, with
-                        # weights for filters k and m
-                        ctgSMkm = torch.einsum('ndb,n->db', stimSM, normFactor)
-                        kmSM = torch.einsum('d,db,b->', fk, ctgSMkm, fm)
-                        filterCov[cc,k,m] = kmSM
-                        filterCov[cc,m,k] = kmSM
-                    elif covPooling=='post-filter' and normalization=='broadband':
-                        # Option 3: Don't weight by similarity coefficients,
-                        # but filter the second moment matrix with each pair
-                        # of filters before pooling
-                        kmSMStim = torch.einsum('d,ndb,b->n', fk, stimSM, fm)
-                        kmSM = torch.mean(kmSMStim)
-                        filterCov[cc,k,m] = kmSM
-                        filterCov[cc,m,k] = kmSM
-                    elif covPooling=='post-filter' and normalization=='narrowband':
-                        # Option 4: Same as option 3, but include the weights
-                        # of the similiarity scores for each stimulus
-                        # covariance
-                        kmSM = torch.einsum('d,ndb,b,n->', fk, stimSM, fm, normFactor)
-                        filterCov[cc,k,m] = kmSM
-                        filterCov[cc,m,k] = kmSM
-    return filterCov
-
+#def isotropic_ctg_resp_secondM(s, sigma, f, covPooling='pre-filter',
+#        normalization='broadband', pooledCovs=None, sAmp=None,
+#        ctgInd=None, noiseW=None, meanW=None):
+#    """Compute analytically the second moment matrix of filter responses to
+#    the noisy normalized stimuli of each category. Do this by applying the
+#    quadratic form f' stimCov f, where stimCov contains the second moment
+#    matrices of the stimuli in s.
+#    #
+#    Inputs:
+#    - s: Stimuli dataset (nStim x nDim)
+#    - sigma: Standard deviation of the isotropic stimulus noise (for
+#        conditions were 1) normalization='broadband' and covPooling='pre-filter',
+#        or 2) noiseW and meanW are not None, it is not needed, and thus ignored)
+#    - f: Filters (nFilt x nDim)
+#    - covPooling: String indicating whether the step of pooling covariances
+#    across stimuli is done for the raw pixels covariances ('pre-filter') or
+#    for the response covariances ('post-filter'). 'pre-filter' is not
+#    exact, but is usually much faster. 'post-filter' is exact, but much
+#    slower.
+#    - pooledCovs: Pixel covariances of noisy-normalized stimuli for each
+#        category. Optional argument that saves compute time for the
+#        case normalization='broadband' and covPooling='pre-filter'.
+#        (nClasses x nDim x nDim)
+#    - sAmp: Fourier amplitude spectra of the stimuli. Optional
+#        argument to save time in the cases where normalization='narrowband'
+#    - ctgInd: Vector with category indices of stimuli s (length nStim).
+#        If not given, all stimuli are assigned to the same class.
+#    - noiseW: Vector with weights of the noise factor in the stimulus
+#        covariance matrices formula. Optional parameter to save compute.
+#        (length nStim)
+#    - meanW: Vector with weights of the mean factor in the stimulus
+#        covariance matrices formula. Optional parameter to save compute.
+#        (length nStim)
+#    #
+#    Outputs:
+#    - filterCov: Tensor with the covariance matrix of the filter responses
+#        for each category. (nClasses x nFilt x nFilt)
+#    """
+#    # 1) Housekeeping
+#    nStim = s.shape[0]
+#    # Adjust dimensions of filters to be row vectors
+#    if f.dim() == 1:
+#        f = f.unsqueeze(0)
+#    nFilt = f.shape[0]
+#    if ctgInd is None:
+#        ctgInd = torch.zeros(nStim)
+#    nClasses = len(ctgInd.unique())
+#    if normalization not in ['broadband', 'narrowband']:
+#        print('Error, normalization is neither narrowband nor broadband')
+#        return
+#    # 2) Get the similarity scores
+#    if normalization == 'narrowband':
+#        if sAmp is not None:
+#            # Compute similarity scores with input s amplitudes
+#            similarityScores = compute_amplitude_similarity(sAmp,
+#                    f, stimSpace='fourier', filterSpace='signal')
+#        else:
+#            # Approximate normalization factor of s/||s+\sigma||
+#            invNormMean = inv_ncx_batch(mu=s, sigma=sigma)
+#            # Compute similarity scores
+#            similarityScores = compute_amplitude_similarity(
+#                    s=torch.multiply(s, invNormMean.unsqueeze(1)),
+#                    f=f, stimSpace='signal', filterSpace='signal')
+#    else:
+#        similarityScores = torch.ones(nStim, nFilt)
+#    # 3) Compute the filter covariances with specified pooling method
+#    # ** 3.1) Option 1**: pre filter pooling and broadband normalization.
+#    # Simples option, just involves multiplying filters and
+#    # category stimulus second moment matrices
+#    if covPooling=='pre-filter' and normalization=='broadband':
+#        if pooledCovs is None:
+#            pooledCovs = isotropic_ctg_secondM(s=s, sigma=sigma,
+#                    noiseW=noiseW, meanW=meanW, ctgInd=ctgInd)
+#        filterCov = torch.einsum('kd,cdb,mb->ckm', f, pooledCovs, f)
+#    else:
+#        filterCov = torch.zeros((nClasses, nFilt, nFilt))
+#        ## All options other than Option 1 involve pair-specific weigthing
+#        # of the individual stimulus covariances. We first compute all
+#        # the stimulus covariances so these are not re-computed for each
+#        # different pair of filters. We iterate over classes to avoid using
+#        # too much memory all at once
+#        for cc in range(nClasses):
+#            levelInd = [i for i, j in enumerate(ctgInd) if j == cc]
+#            # If weigths are precomputed, get category weights here
+#            stimNoiseW = None
+#            if not noiseW is None:
+#                stimNoiseW = noiseW[levelInd]
+#            stimMeanW = None
+#            if not meanW is None:
+#                stimMeanW = meanW[levelInd]
+#            # Get covariance of each stimulus in class
+#            stimSM = isotropic_individual_stim_secondM(s=s[levelInd,:],
+#                   sigma=sigma, noiseW=stimNoiseW, meanW=stimMeanW)
+#            # Now with these covariances for this class, cycle over filters
+#            # doing the appropriate filter-pair-specific weightings and combinations
+#            for k in range(f.shape[0]):
+#                for m in range(k+1):
+#                    # narrowband weight
+#                    pairWeight = similarityScores[levelInd,k] * \
+#                            similarityScores[levelInd,m]
+#                    nStimCtg = len(levelInd)
+#                    # narrowband and 1/stim for computing mean
+#                    normFactor = 1/(pairWeight*nStimCtg)
+#                    fk = f[k,:]
+#                    fm = f[m,:]
+#                    if covPooling == 'pre-filter' and normalization=='narrowband':
+#                        # Option 2: Add filter-pair-specific narrowband weights
+#                        # to the stimulus second moments for this class,
+#                        # and pool the, together. Then filter the pooled
+#                        # second moment matrix.
+#                        #
+#                        # Pooled second-moment matrix for this category, with
+#                        # weights for filters k and m
+#                        ctgSMkm = torch.einsum('ndb,n->db', stimSM, normFactor)
+#                        kmSM = torch.einsum('d,db,b->', fk, ctgSMkm, fm)
+#                        filterCov[cc,k,m] = kmSM
+#                        filterCov[cc,m,k] = kmSM
+#                    elif covPooling=='post-filter' and normalization=='broadband':
+#                        # Option 3: Don't weight by similarity coefficients,
+#                        # but filter the second moment matrix with each pair
+#                        # of filters before pooling
+#                        kmSMStim = torch.einsum('d,ndb,b->n', fk, stimSM, fm)
+#                        kmSM = torch.mean(kmSMStim)
+#                        filterCov[cc,k,m] = kmSM
+#                        filterCov[cc,m,k] = kmSM
+#                    elif covPooling=='post-filter' and normalization=='narrowband':
+#                        # Option 4: Same as option 3, but include the weights
+#                        # of the similiarity scores for each stimulus
+#                        # covariance
+#                        kmSM = torch.einsum('d,ndb,b,n->', fk, stimSM, fm, normFactor)
+#                        filterCov[cc,k,m] = kmSM
+#                        filterCov[cc,m,k] = kmSM
+#    return filterCov
+#
 
 
 ##################################
