@@ -111,9 +111,9 @@ elapsedTimes = [None] * nModels  # List with the training times of each model
 filters = [None] * nModels  # List with the filters learned for each model
 # Loop over the number of models to train
 for n in range(nModels):
-    ama = cl.Isotropic(sAll=s, nFilt=2, ctgInd=ctgInd, respNoiseVar=respNoiseVar,
-            pixelVar=pixelNoiseVar, ctgVal=ctgVal, respCovPooling='pre-filter',
-            filtNorm='broadband')
+    ama = cl.Isotropic(sAll=s, ctgInd=ctgInd, nFilt=2,
+            respNoiseVar=respNoiseVar, pixelVar=pixelNoiseVar, ctgVal=ctgVal, 
+            filtNorm='broadband', respCovPooling='pre-filter')
     loss[n], elapsedTimes[n] = au.fit_by_pairs(nEpochs=nEpochs, model=ama,
         trainDataLoader=trainDataLoader, lossFun=lossFun, opt_fun=opt_fun,
         nPairs=nPairs, sAll=s, ctgInd=ctgInd, scheduler_fun=scheduler_fun)
@@ -198,9 +198,9 @@ elapsedTimes = [None] * nModels
 filters = [None] * nModels
 
 for n in range(nModels):
-    ama = cl.AMA(sAll=s, nFilt=2, ctgInd=ctgInd, respNoiseVar=respNoiseVar,
-            pixelCov=pixelNoiseVar, ctgVal=ctgVal, respCovPooling='pre-filter',
-            filtNorm='broadband')
+    ama = cl.Isotropic(sAll=s, ctgInd=ctgInd, nFilt=2,
+            respNoiseVar=respNoiseVar, pixelVar=pixelNoiseVar, ctgVal=ctgVal, 
+            filtNorm='broadband', respCovPooling='pre-filter')
     loss[n], elapsedTimes[n] = au.fit_by_pairs(nEpochs=nEpochs, model=ama,
         trainDataLoader=trainDataLoader, lossFun=lossFun, opt_fun=opt_fun,
         nPairs=nPairs, sAll=s, ctgInd=ctgInd, scheduler_fun=scheduler_fun,
@@ -275,10 +275,9 @@ for bs in range(len(batchSize)):
                 return torch.optim.lr_scheduler.StepLR(opt, step_size=lrStepSize, gamma=lrGamma[g])
             for n in range(nModels):
     #            nDict = gDict.copy()
-                ama = cl.AMA(sAll=s, nFilt=2, ctgInd=ctgInd,
-                        respNoiseVar=respNoiseVar, pixelCov=pixelNoiseVar,
-                        ctgVal=ctgVal, respCovPooling='pre-filter',
-                        filtNorm='broadband')
+                ama = cl.Isotropic(sAll=s, ctgInd=ctgInd, nFilt=2,
+                        respNoiseVar=respNoiseVar, pixelVar=pixelNoiseVar, ctgVal=ctgVal,
+                        filtNorm='broadband', respCovPooling='pre-filter')
                 loss, elapsedTimes = au.fit_by_pairs(nEpochs=nEpochs, model=ama,
                     trainDataLoader=trainDataLoader, lossFun=lossFun,
                     opt_fun=opt_fun, nPairs=nPairs, sAll=s, ctgInd=ctgInd,

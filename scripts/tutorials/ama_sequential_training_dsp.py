@@ -85,9 +85,9 @@ batchSize = 256
 ####  TRAIN FIRST PAIR OF FILTERS
 ##############
 # Define model
-ama = cl.AMA(sAll=s, nFilt=nFilt, ctgInd=ctgInd, respNoiseVar=respNoiseVar,
-        pixelCov=pixelNoiseVar, ctgVal=ctgVal, respCovPooling='pre-filter',
-        filtNorm='broadband')
+ama = cl.Isotropic(sAll=s, ctgInd=ctgInd, nFilt=nFilt,
+        respNoiseVar=respNoiseVar, pixelVar=pixelNoiseVar, ctgVal=ctgVal, 
+        filtNorm='broadband', respCovPooling='pre-filter')
 
 # Put data into Torch data loader tools
 trainDataset = TensorDataset(s, ctgInd)
@@ -151,9 +151,9 @@ plt.show()
 
 # <codecell>
 # DEFINE NEW MODEL TO TRAIN
-ama2 = cl.AMA(sAll=s, nFilt=nFilt, ctgInd=ctgInd, respNoiseVar=respNoiseVar,
-        pixelCov=pixelNoiseVar, ctgVal=ctgVal, respCovPooling='pre-filter',
-        filtNorm='broadband')
+ama2 = cl.Isotropic(sAll=s, ctgInd=ctgInd, nFilt=nFilt,
+        respNoiseVar=respNoiseVar, pixelVar=pixelNoiseVar, ctgVal=ctgVal, 
+        filtNorm='broadband', respCovPooling='pre-filter')
 
 # <codecell>
 # SET PARAMETERS FOR TRAINING THE FILTERS. INITIALIZE OPTIMIZER
@@ -218,9 +218,9 @@ def scheduler_fun(opt):
     return torch.optim.lr_scheduler.StepLR(opt, step_size=lrStepSize, gamma=lrGamma)
 
 # Initialize model to train
-ama3 = cl.AMA(sAll=s, nFilt=nFilt, ctgInd=ctgInd, respNoiseVar=respNoiseVar,
-        pixelCov=pixelNoiseVar, ctgVal=ctgVal, respCovPooling='pre-filter',
-        filtNorm='broadband')
+ama3 = cl.Isotropic(sAll=s, ctgInd=ctgInd, nFilt=nFilt,
+        respNoiseVar=respNoiseVar, pixelVar=pixelNoiseVar, ctgVal=ctgVal, 
+        filtNorm='broadband', respCovPooling='pre-filter')
 
 # <codecell>
 # Train model by pairs

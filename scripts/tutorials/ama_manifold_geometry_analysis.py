@@ -94,9 +94,9 @@ nFilt = nPairs * 2
 ##############
 
 # Define model
-ama = cl.AMA(sAll=s, nFilt=2, ctgInd=ctgInd, respNoiseVar=respNoiseVar,
-        pixelCov=pixelNoiseVar, ctgVal=ctgVal, respCovPooling='pre-filter',
-        filtNorm='broadband')
+ama = cl.Isotropic(sAll=s, ctgInd=ctgInd, nFilt=2,
+        respNoiseVar=respNoiseVar, pixelVar=pixelNoiseVar, ctgVal=ctgVal, 
+        filtNorm='broadband', respCovPooling='pre-filter')
 
 # Put training data into Torch data loader tools
 trainDataset = TensorDataset(s, ctgInd)
@@ -125,9 +125,9 @@ fLearned = ama.f.detach().clone().numpy()
 ##############
 #### UNTRAINED MODEL COVARIANCES
 ##############
-amaRand = cl.AMA(sAll=s, nFilt=nFilt, ctgInd=ctgInd, respNoiseVar=respNoiseVar,
-        pixelCov=pixelNoiseVar, ctgVal=ctgVal, respCovPooling='pre-filter',
-        filtNorm='broadband')
+amaRand = cl.Isotropic(sAll=s, ctgInd=ctgInd, nFilt=nFilt,
+        respNoiseVar=respNoiseVar, pixelVar=pixelNoiseVar, ctgVal=ctgVal, 
+        filtNorm='broadband', respCovPooling='pre-filter')
 # Extract response covariances for trained filters
 respRandomCovs = amaRand.respCov.detach().numpy()
 fRandom = amaRand.f.detach().clone().numpy()

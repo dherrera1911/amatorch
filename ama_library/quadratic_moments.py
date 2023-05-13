@@ -81,12 +81,12 @@ def compute_isotropic_formula_weights(s, sigma):
     """
     nDim = s.shape[1]
     # Square mean of stimuli divided by standard deviation
-    nonCentrality = qm.compute_nc_parameter_batch(s, sigma)
+    nonCentrality = compute_nc_parameter_batch(s, sigma)
     # Weighting factors for the mean outer product in second moment estimation
-    smMeanW = qm.compute_stimuli_hyp1f1(a=1, b=nDim/2+2,
+    smMeanW = compute_stimuli_hyp1f1(a=1, b=nDim/2+2,
             nc=nonCentrality) * (1/(nDim+2))
     # Weighting factors for the identity matrix in second moment estimation
-    smNoiseW = qm.compute_stimuli_hyp1f1(a=1, b=nDim/2+1,
+    smNoiseW = compute_stimuli_hyp1f1(a=1, b=nDim/2+1,
             nc=nonCentrality) * (1/nDim)
     return nonCentrality, smMeanW, smNoiseW
 
@@ -207,17 +207,17 @@ def isotropic_mean_batch(s, sigma, invNormMean=None, ctgInd=None):
         for each stimulus. (nStim)
     ctgInd: Vector with index categories for the stimuli in s
     """
-    df = int(s.shape[1])
+    nDim = int(s.shape[1])
     nStim = s.shape[0]
-    # Fill up vectors ctgInd and normFactor with irrelevant values if not given
+    # Fill up vector ctgInd with 0's if not given
     if ctgInd is None:
         ctgInd = torch.zeros(nStim)
-    # If precomputed weights are not given, compute them here
+    # If precomputed normalization factors are not given, compute them here
     if invNormMean is None:
         invNormMean = inv_ncx_batch(mu=s, sigma=sigma)
-    # Compute the weighted means of the second moments for each batch of stimuli
+    # Compute the means of the second moments for each batch of stimuli
     nClasses = np.unique(ctgInd).size
-    stimMean = torch.zeros(nClasses, df)
+    stimMean = torch.zeros(nClasses, nDim)
     for cl in range(nClasses):
         levelInd = [i for i, j in enumerate(ctgInd) if j == cl]
         sLevel = s[levelInd, :]
@@ -242,7 +242,6 @@ def isotropic_individual_stim_secondM(s, sigma, noiseW=None, meanW=None):
         s = s.unsqueeze(0)
     df = int(s.shape[1])
     nStim = s.shape[0]
-    # Fill up vectors ctgInd and normFactor with irrelevant values if not given
     # If precomputed weights are not given, compute them here
     if (noiseW is None) or (meanW is None):
         nc = compute_nc_parameter_batch(s, sigma)
@@ -287,10 +286,10 @@ def isotropic_ctg_secondM(s, sigma, noiseW=None, meanW=None, ctgInd=None,
     - s: matrix with stimuli. (nStim x nDim)
     - sigma: noise standard deviation. Scalar
     - noiseW: Weight of the noise for each row in s. Obtained
-        as hyp1f1(1; df/2+1, -(||s/sigma||**2)/2).
+        as hyp1f1(1; nDim/2+1, -(||s/sigma||**2)/2).
         If empty, it is computed inside this function. Vector, length = nStim
     - meanW: Weight of mean outer product for each row in s. Obtained
-        as hyp1f1(1; df/2+2, -(||s/sigma||**2)/2).
+        as hyp1f1(1; nDim/2+2, -(||s/sigma||**2)/2).
         If empty, it is computed inside this function. Vector, length = nStim
     - ctgInd: Vector with index categories for the stimuli in s
     - normFactor: normalization factor given by filter-stimulus phase
@@ -299,23 +298,23 @@ def isotropic_ctg_secondM(s, sigma, noiseW=None, meanW=None, ctgInd=None,
     Output: 
     - expectedCovs:
     """
-    df = int(s.shape[1])
+    nDim = int(s.shape[1])
     nStim = s.shape[0]
-    # Fill up vectors ctgInd with irrelevant values if not given
+    # Fill up vector ctgInd with 0's if not given
     if ctgInd is None:
         ctgInd = torch.zeros(nStim)
     # If precomputed weights are not given, compute them here
     if (noiseW is None) or (meanW is None):
         nc = compute_nc_parameter_batch(s, sigma)
     if noiseW is None:
-        hypFunNoise = compute_stimuli_hyp1f1(a=1, b=df/2+1, nc=nc)
-        noiseW = hypFunNoise * (1/df)
+        hypFunNoise = compute_stimuli_hyp1f1(a=1, b=nDim/2+1, nc=nc)
+        noiseW = hypFunNoise * (1/nDim)
     if meanW is None:
-        hypFunMean = compute_stimuli_hyp1f1(a=1, b=df/2+2, nc=nc)
-        meanW = hypFunMean * (1/(df+2))
+        hypFunMean = compute_stimuli_hyp1f1(a=1, b=nDim/2+2, nc=nc)
+        meanW = hypFunMean * (1/(nDim+2))
     # Compute the means of the second moments for each ctg of stimuli
     nClasses = np.unique(ctgInd).size
-    expectedSM = torch.zeros(nClasses, df, df)
+    expectedSM = torch.zeros(nClasses, nDim, nDim)
     for cl in range(nClasses):
         # Get index of stim in this level
         levelInd = [i for i, j in enumerate(ctgInd) if j == cl]
@@ -329,7 +328,7 @@ def isotropic_ctg_secondM(s, sigma, noiseW=None, meanW=None, ctgInd=None,
             stimScales = stimScales * torch.sqrt(normFactor[levelInd])
         scaledStim = torch.einsum('nd,n->nd', s[levelInd,:], stimScales)
         expectedSM[cl,:,:] = torch.einsum('nd,nb->db', scaledStim, scaledStim) + \
-                torch.eye(df)*noiseWMean
+                torch.eye(nDim)*noiseWMean
     return expectedSM
 
 
@@ -356,7 +355,7 @@ def isotropic_ctg_resp_mean(s, sigma, f, normalization='broadband',
     - ctgInd: Vector with category indices of stimuli s (length nStim)
     - sAmp: Optional to save compute when normalization='narrowband'.
         Stimulus amplitude spectrum. Should be computed with
-        'compute_amplitude_spectrum(s)' (nStim x nDim)
+        'au.compute_amplitude_spectrum(s)' (nStim x nDim)
     - invNormMean: Optional to save compute (broadband and narrowband).
         The expected values of the inverse of the norm for each stimulus s.
         Should be computed with the inv_ncx functions. (nStim)
@@ -458,9 +457,9 @@ def isotropic_ctg_resp_secondM(s, f, sigma, noiseW, meanW,
         if normFactors is None:
             #### Add correction by inverse mean of s
             # Approximate normalization factor of s/||s+\sigma||
-            invNormMean = qm.inv_ncx_batch(mu=s, sigma=sigma)
+            invNormMean = inv_ncx_batch(mu=s, sigma=sigma)
             # Compute similarity scores
-            similarities = qm.compute_amplitude_similarity(
+            similarities = compute_amplitude_similarity(
                     s=torch.multiply(s, invNormMean.unsqueeze(1)),
                     f=f, stimSpace='signal', filterSpace='signal')
             normFactors = 1/similarities
@@ -657,13 +656,13 @@ def compute_amplitude_similarity(s, f, stimSpace='signal',
     # Get the Amplitude spectrum of the signal
     if stimSpace == 'signal':
         # Get amplitude spectrum
-        sAmp = compute_amplitude_spectrum(s)
+        sAmp = au.compute_amplitude_spectrum(s)
     else:
         sAmp = s
     # Get the Amplitude spectrum of the filter
     if filterSpace == 'signal':
         # Get amplitude spectrum
-        fAmp = compute_amplitude_spectrum(f)
+        fAmp = au.compute_amplitude_spectrum(f)
     else:
         fAmp = f
     # Get the normalization factor, i.e. inverse product of norms
@@ -675,32 +674,28 @@ def compute_amplitude_similarity(s, f, stimSpace='signal',
     return similarity
 
 
-def compute_amplitude_spectrum(s):
-    """Compute the amplitude spectrum of a stimulus. Shifted
-    to have lower amplitudes in the middle.
-    Also divides by the square root of the number of dimension"""
-    # Get amplitude spectrum
-    sAmp = torch.abs(fft.fftshift(fft.fft(s, dim=1, norm='ortho'), dim=1))
-    return sAmp
-
-
-def secondM_2_cov(secondM, mean):
+def secondM_2_cov(secondM, mean, nStim=None):
     """Convert matrices of second moments to covariances, by
     subtracting the product of the mean with itself.
     Input:
-    - secondM: Second moment matrix. E.g. computed with
-         'isotropic_ctg_resp_secondM'. (nClasses x nFilt x nFilt,
-         or nFilt x nFilt)
-    - mean: mean matrix. E.g. computed with 'isotropic_ctg_resp_mean'.
-         (nClasses x nFilt, or nFilt)
+        - secondM: Second moment matrix. E.g. computed with
+             'isotropic_ctg_resp_secondM'. (nClasses x nFilt x nFilt,
+             or nFilt x nFilt)
+        - mean: mean matrix. E.g. computed with 'isotropic_ctg_resp_mean'.
+             (nClasses x nFilt, or nFilt)
     Output:
-    - covariance: Covariance matrices. (nClasses x nFilt x nFilt)
+        - covariance: Covariance matrices. (nClasses x nFilt x nFilt)
     """
     if secondM.dim() == 2:
         secondM = secondM.unsqueeze(0)
     if mean.dim() == 1:
         mean = mean.unsqueeze(0)
-    covariance = secondM - torch.einsum('cd,cb->cdb', mean, mean)
+    # Get the multiplying factor to make covariance unbiased
+    if nStim is None:
+        unbiasingFactor = 1
+    else:
+        unbiasingFactor = nStim/(nStim-1)
+    covariance = (secondM - torch.einsum('cd,cb->cdb', mean, mean)) * unbiasingFactor
     return covariance
 
 

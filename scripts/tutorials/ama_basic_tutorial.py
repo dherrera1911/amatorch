@@ -254,9 +254,9 @@ nFilt = 2  # Create the model with 2 filters
 pixelNoiseVar = 0.001  # Input pixel noise variance
 respNoiseVar = 0.003  # Filter response noise variance
 # Create the untrained AMA object
-ama = cl.AMA(sAll=s, ctgInd=ctgInd, nFilt=nFilt, respNoiseVar=respNoiseVar,
-        pixelCov=pixelNoiseVar, ctgVal=ctgVal,
-        respCovPooling='pre-filter', filtNorm='broadband')
+ama = cl.Isotropic(sAll=s, ctgInd=ctgInd, nFilt=nFilt,
+        respNoiseVar=respNoiseVar, pixelVar=pixelNoiseVar, ctgVal=ctgVal, 
+        filtNorm='broadband', respCovPooling='pre-filter')
 
 
 # <markdowncell>

@@ -85,9 +85,9 @@ for bs in range(nBatchSizes):
     lrStepSize = int(nEpochs/3)
     batchSize = int(batchSizeVec[bs])
     # Initialize model with random filters
-    ama = cl.AMA(sAll=s, ctgInd=ctgInd, nFilt=nFilt, respNoiseVar=respNoiseVar,
-            pixelCov=pixelNoiseVar, ctgVal=ctgVal,
-            respCovPooling='pre-filter', filtNorm='broadband')
+    ama = cl.Isotropic(sAll=s, ctgInd=ctgInd, nFilt=nFilt,
+            respNoiseVar=respNoiseVar, pixelVar=pixelNoiseVar, ctgVal=ctgVal,
+            filtNorm='broadband', respCovPooling='pre-filter')
     # Put data into Torch data loader tools
     trainDataset = TensorDataset(s, ctgInd)
     # Batch loading and other utilities 
