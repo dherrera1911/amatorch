@@ -38,6 +38,7 @@ from torch.utils.data import TensorDataset, DataLoader
 # <codecell>
 import ama_library.ama_class as cl
 import ama_library.utilities as au
+import ama_library.plotting as ap
 
 
 # <codecell>
@@ -153,7 +154,7 @@ for n in range(nModels):
     for nf in range(nFilt):
         ax = axs[n, nf]
         plt.subplot(nModels, nFilt, n*nFilt + nf + 1)
-        au.view_1D_bino_image(filters[n][nf,:])
+        ap.view_1D_bino_image(filters[n][nf,:])
         ax.set_yticks([])
         ax.set_xticks([])
         # Add column label at the top of each column
@@ -222,7 +223,7 @@ for n in range(nModels):
     for nf in range(nFilt):
         ax = axs[n, nf]
         plt.subplot(nModels, nFilt, n*nFilt + nf + 1)
-        au.view_1D_bino_image(filters[n][nf,:])
+        ap.view_1D_bino_image(filters[n][nf,:])
         ax.set_yticks([])
         ax.set_xticks([])
         # Add column label at the top of each column
@@ -337,7 +338,7 @@ for n in range(nModels):
     for nf in range(nFilt):
         ax = axs[n, nf]
         plt.subplot(nModels, nFilt, n*nFilt + nf + 1)
-        au.view_1D_bino_image(filters[n][nf,:])
+        ap.view_1D_bino_image(filters[n][nf,:])
         ax.set_yticks([])
         ax.set_xticks([])
         # Add column label at the top of each column

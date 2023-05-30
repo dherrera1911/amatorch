@@ -31,6 +31,7 @@ from torch.utils.data import TensorDataset, DataLoader
 # <codecell>
 import ama_library.ama_class as cl
 import ama_library.utilities as au
+import ama_library.plotting as ap
 
 
 # <codecell>
@@ -111,7 +112,7 @@ plt.show()
 # <codecell>
 ## PLOT THE LEARNED FILTERS
 x = np.linspace(start=-30, stop=30, num=ama.nDim) # x axis in arc min
-au.view_all_filters_1D_bino_image(ama, x=x)
+ap.view_all_filters_1D_bino_image(ama, x=x)
 plt.show()
 
 # <codecell>
@@ -119,7 +120,7 @@ plt.show()
 ama.add_new_filters(nFiltNew=2, sAll=s, ctgInd=ctgInd)
 
 # Plot the set of 4 filters before re-training
-au.view_all_filters_1D_bino_image(ama, x=x)
+ap.view_all_filters_1D_bino_image(ama, x=x)
 plt.show()
 
 # <codecell>
@@ -137,7 +138,7 @@ plt.plot(elapsedTimes, loss)
 plt.show()
 
 # Plot filters after learning
-au.view_all_filters_1D_bino_image(ama, x=x)
+ap.view_all_filters_1D_bino_image(ama, x=x)
 plt.show()
 
 # <markdowncell>
@@ -176,7 +177,7 @@ loss, elapsedTimes = au.fit(nEpochs=nEpochs, model=ama2,
 plt.plot(elapsedTimes, loss)
 plt.show()
 
-au.view_all_filters_1D_bino_image(ama2, x)
+ap.view_all_filters_1D_bino_image(ama2, x)
 plt.show()
 
 # <codecell>
@@ -184,7 +185,7 @@ plt.show()
 # Fix the learned filters in place
 ama2.move_trainable_2_fixed(sAll=s, ctgInd=ctgInd)
 # View current filters
-au.view_all_filters_1D_bino_image(ama2, x)
+ap.view_all_filters_1D_bino_image(ama2, x)
 plt.show()
 
 # <codecell>
@@ -200,7 +201,7 @@ loss, elapsedTimes = au.fit(nEpochs=nEpochs, model=ama2,
         sAll=s, ctgInd=ctgInd, scheduler=scheduler)
 plt.plot(elapsedTimes, loss)
 plt.show()
-au.view_all_filters_1D_bino_image(ama2)
+ap.view_all_filters_1D_bino_image(ama2)
 plt.show()
 
 
@@ -230,7 +231,7 @@ loss3, elapsedTimes3 = au.fit_by_pairs(nEpochs=nEpochs, model=ama3,
 
 # <codecell>
 # Visualize trained filters
-au.view_all_filters_1D_bino_image(ama3)
+ap.view_all_filters_1D_bino_image(ama3)
 plt.show()
 
 # <codecell>

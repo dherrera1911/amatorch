@@ -35,6 +35,7 @@ from torch.utils.data import TensorDataset, DataLoader
 ##### COMMENT THIS CELL WHEN USING GOOGLE COLAB
 import ama_library.ama_class as cl
 import ama_library.utilities as au
+import ama_library.plotting as ap
 import pymanopt as pm
 import geomstats as gs
 from geomstats.geometry.spd_matrices import SPDMatrices
@@ -241,7 +242,7 @@ for n in range(nModels-1):
         titleStr = namesList[n]
         if (nf>0):
             titleStr = ''
-        au.view_1D_bino_image(inputVec=fPlot[nf,:], x=x, title=titleStr)
+        ap.view_1D_bino_image(inputVec=fPlot[nf,:], x=x, title=titleStr)
         plt.yticks([])
         plt.xlabel('Visual field (arcmin)')
 

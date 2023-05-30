@@ -217,6 +217,7 @@ plt.show()
 ##############
 import ama_library.ama_class as cl
 import ama_library.utilities as au
+import ama_library.plotting as ap
 
 
 # <markdowncell>
@@ -418,7 +419,7 @@ plt.show()
 ##############
 # PLOT DISTRIBUTION OF NOISY FILTER RESPONSES
 ##############
-au.all_response_ellipses(model=ama, s=s, ctgInd=ctgInd,
+ap.all_response_ellipses(model=ama, s=s, ctgInd=ctgInd,
         ctgStep=4, colorLabel='Disparity (arcmin)')
 
 
@@ -456,8 +457,7 @@ plt.show()
 estimUntr = ama.get_estimates(s=s, method4est='MAP', addStimNoise=True,
         addRespNoise=True)
 # Summarize the estimates into means and SD for each class
-estimSummUntr = au.get_estimate_statistics(estimates=estimUntr,
-        ctgInd=ctgInd)
+estimSummUntr = au.get_estimate_statistics(estimates=estimUntr, ctgInd=ctgInd)
 # Plot the mean estimates for each class
 fig, ax = plt.subplots()
 ax.plot(ctgVal, estimSummUntr['estimateMean'])
@@ -540,7 +540,7 @@ plt.show()
 ##############
 # PLOT RESULTING FILTERS
 ##############
-au.view_all_filters_1D_bino_image(ama)
+ap.view_all_filters_1D_bino_image(ama)
 plt.show()
 
 # <markdowncell>
@@ -555,7 +555,7 @@ plt.show()
 ##############
 # PLOT RESPONSE DISTRIBUTION WITH TRAINED MODEL
 ##############
-au.all_response_ellipses(model=ama, s=s, ctgInd=ctgInd,
+ap.all_response_ellipses(model=ama, s=s, ctgInd=ctgInd,
         ctgStep=4, colorLabel='Disparity (arcmin)')
 fig.set_size_inches(10,8)
 

@@ -24,28 +24,29 @@ def uncomment_flagged_blocks(text):
 
 
 fileName = [
-#        "ama_basic_tutorial"
-#        "ama_batch_size_analysis_dsp"
-#        "ama_sequential_training_dsp"
-#        "ama_manifold_geometry_analysis"
-#        "ama_filter_learning_robustness"
-        "normalized_cov_approximation"
+        "ama_basic_tutorial",
+        "ama_batch_size_analysis_dsp",
+        "ama_sequential_training_dsp",
+        "ama_manifold_geometry_analysis",
+        "ama_filter_learning_robustness",
+        "normalized_cov_approximation",
         ]
 
-inputFile = './scripts/tutorials/' + fileName[0] + '.py'
-outputFile = './notebooks/' + fileName[0] + '.ipynb'
-# Open the file
-fpin = open(inputFile)
-text = fpin.read()
-# Uncomment block text for COLAB
-text = uncomment_flagged_blocks(text)
-# Convert to notebook
-nbook = v3.reads_py(text)
-nbook = v4.upgrade(nbook)  # Upgrade v3 to v4
-jsonform = v4.writes(nbook) + "\n"
-# Write notebook
-fpout = open(outputFile, "w")
-fpout.write(jsonform)
-fpout.close()
+for f in range(len(fileName)):
+    inputFile = './scripts/tutorials/' + fileName[f] + '.py'
+    outputFile = './notebooks/' + fileName[f] + '.ipynb'
+    # Open the file
+    fpin = open(inputFile)
+    text = fpin.read()
+    # Uncomment block text for COLAB
+    text = uncomment_flagged_blocks(text)
+    # Convert to notebook
+    nbook = v3.reads_py(text)
+    nbook = v4.upgrade(nbook)  # Upgrade v3 to v4
+    jsonform = v4.writes(nbook) + "\n"
+    # Write notebook
+    fpout = open(outputFile, "w")
+    fpout.write(jsonform)
+    fpout.close()
 
 

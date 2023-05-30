@@ -28,6 +28,7 @@ from torch.utils.data import TensorDataset, DataLoader
 # <codecell>
 import ama_library.ama_class as cl
 import ama_library.utilities as au
+import ama_library.plotting as ap
 
 
 # <codecell>
@@ -120,7 +121,7 @@ for bs in range(nBatchSizes):
     for nf in range(nFilt):
         plt.subplot(nFilt, nBatchSizes, bs+1+nBatchSizes*nf)
         fPlot = filterDict["filter"][bs][nf,:]
-        au.view_1D_bino_image(inputVec=fPlot, x=x,
+        ap.view_1D_bino_image(inputVec=fPlot, x=x,
                 title='size: %i'  %batchSizeVec[bs])
 plt.show()
 
