@@ -18,29 +18,40 @@ import time
 #
 
 
-def response_ellipses_subplot(resp, covariance, ctgInd, ctgVal,
-        plotFilt=torch.tensor([0,1]), fig=None, ax=None):
+def response_ellipses_subplot(covariance, resp=None, ctgInd=None, ctgVal=None,
+        plotFilt=torch.tensor([0,1]), subsampleFactor=1, fig=None, ax=None):
     """Do a 2D scatter plot of a set of responses, and draw ellipses to
     show the 2 SD of the Gaussian distribution.
-    Inputs:
-    - resp: Tensor with filter responses. (nStim x nFilt)
-    - covariance: Tensor with covariances for each class. (nClasses x nFilt x nFilt)
-    - ctgInd: Class index of each stimulus. (nStim)
-    - ctgVal: Vector with the X values of each category.
-            Used for the color code
-    - plotFilt: Tensor with the indices of the two filters to plot (i.e. the columns
-            of resp, and the sub-covariance matrix of covariance)
-    - ax: The axis handle on which to draw the ellipse
+    #
+    Arguments:
+        - covariance: Tensor with covariances for each class. (nClasses x nFilt x nFilt)
+        - resp: Tensor with filter responses. (nStim x nFilt)
+        - ctgInd: Class index of each stimulus. (nStim)
+        - ctgVal: Vector with the X values of each category. Used for
+            the color code
+        - plotFilt: Tensor with the indices of the two filters to plot (i.e. the columns
+                of resp, and the sub-covariance matrix of covariance)
+        - subsampleFactor: Factor by which categories are subsampled
+        - ax: The axis handle on which to draw the ellipse
     """
-    # Get the value corresponding to each data point
-    respVal = ctgVal[ctgInd]
+    nCtg = covariance.shape[0]
+    # If ctgVal not give, make equispaced between -1 and 1
+    if ctgVal is None:
+        ctgVal = torch.linspace(-1, 1, nCtg)
+    # If ctgInd not given, make vector with class indices
+    if ctgInd is None:
+        ctgInd = torch.arange(covariance.shape[0])
+    # Select relevant classes, and subsample vectors
+    ctg2plot = au.subsample_categories(nCtg=nCtg, subsampleFactor=subsampleFactor)
+    if not resp is None:
+        resp = resp[np.isin(ctgInd, ctg2plot),:]
     # Select relevant covariances
     # Covariances to plot
-    covPlt = au.subsample_covariance(covariance=covariance,
-            classInd=ctgInd.unique(), filtInd=plotFilt)
+    covPlt = au.subsample_covariance(covariance=covariance, classInd=ctg2plot,
+            filtInd=plotFilt)
     # Category values associated with the covariances
-    covVal = ctgVal[ctgInd.unique()]
-    # Plot responses and ellipses
+    covVal = ctgVal[ctg2plot]
+    # Plt responses and ellipses
     if ax is None:
         fig, ax = plt.subplots()
         showPlot = True
@@ -49,8 +60,11 @@ def response_ellipses_subplot(resp, covariance, ctgInd, ctgVal,
     # Normalize color plot for shared colors
     norm = colors.Normalize(vmin=ctgVal.min(), vmax=ctgVal.max())
     cmap = cm.get_cmap('viridis')
-    sc = ax.scatter(resp[:, plotFilt[0]], resp[:, plotFilt[1]],
-            c=respVal, cmap=cmap, s=2, norm=norm, alpha=0.5)
+    if not resp is None:
+        # Get the value corresponding to each data point
+        respVal = ctgVal[ctgInd[np.isin(ctgInd, ctg2plot)]]
+        sc = ax.scatter(resp[:, plotFilt[0]], resp[:, plotFilt[1]],
+                c=respVal, cmap=cmap, s=5, norm=norm, alpha=0.5)
     # create ellipses for each covariance matrix
     for i in range(covPlt.shape[0]):
         cov = covPlt[i, :, :]
@@ -66,11 +80,13 @@ def response_ellipses_subplot(resp, covariance, ctgInd, ctgVal,
         ell.set_linewidth(2)
         ax.add_artist(ell)
     # Label the axes indicating plotted filters
-    plt.xlabel(f'Filter {plotFilt[0]}')
-    plt.ylabel(f'Filter {plotFilt[1]}')
+    plt.xlabel(f'Filter {plotFilt[0]+1}')
+    plt.ylabel(f'Filter {plotFilt[1]+1}')
+    ax.set_xlim(-1,1)
+    ax.set_ylim(-1,1)
+    #cax = fig.add_axes([0.90, 0.125, 0.02, 0.755])
+    #plt.colorbar(cm.ScalarMappable(norm=norm, cmap=cmap), cax=cax)
     if showPlot:
-        cax = fig.add_axes([0.90, 0.125, 0.02, 0.755])
-        plt.colorbar(cm.ScalarMappable(norm=norm, cmap=cmap), cax=cax)
         fig.tight_layout(rect=[0, 0, 1, 0.95])
         plt.show()
 
@@ -118,6 +134,67 @@ def all_response_ellipses(model, s, ctgInd, ctgStep, colorLabel,
     plt.show()
 
 
+def plot_covariance_values(covariances, xVal=None, covarianceNames=None,
+        sizeList=None, maxInd=None):
+    """
+    Plot how each element i,j of the covariance matrix changes as a function
+    of the level of the latent varaiable.
+    #
+    Arguments:
+    - covariances: List of arrays of covariance matrices to plot. Each element of the list has shape (n, c, c)
+        where n is the number of matrices and c is the dimension of each matrix.
+        Can be the object respCov that is obtained from an ama object.
+    - covarianceNames: List of labels for each element in covariances.
+    - xVal: List of x axis values for each element in covariances.
+    """
+    # Checking if covarianceNames is not given then assign default names
+    if covarianceNames is None:
+        covarianceNames = ["Covariance " + str(i) for i in range(len(covariances))]
+    if sizeList is None:
+        sizeList = np.ones(len(covariances)) * 0.5
+    # Generate colors for each element in covariances
+    colors = plt.cm.rainbow(np.linspace(0, 1, len(covariances)))
+    # Size of the covariance matrices
+    if maxInd is None:
+      c = covariances[0].shape[1]
+    else:
+      c = maxInd
+    # Create a grid of subplots with c rows and c columns
+    fig, axs = plt.subplots(c, c, figsize=(15, 15))
+    # Handles for storing legend items
+    legend_handles = []
+    # Iterate over the covariances list
+    for covIndex, covariance in enumerate(covariances):
+        n = covariance.shape[0] # Number of covariance matrices
+        if xVal is None:
+            x = np.linspace(-1, 1, n)
+        else:
+            x = xVal[covIndex]
+        # Iterate over the lower triangle of the covariance matrices
+        for i in range(c):
+            for j in range(i+1):
+                # Extract the (i,j)-th element from each covariance matrix
+                elementValues = covariance[:, i, j]
+                x = x + np.random.randn(len(x)) * 0.00005 # add a bit of noise to prevent overlapping
+                # Plot how this element changes as a function of k
+                scatter = axs[i, j].scatter(x, elementValues, color=colors[covIndex],
+                        label=covarianceNames[covIndex], s=sizeList[covIndex], alpha=1)
+                # Add scatter plot to legend handles on first pass
+                if i == 0 and j == 0:
+                    legend_handles.append(scatter)
+                # Remove x axis labels if not last row
+                if i != c - 1:
+                    axs[i, j].set_xticklabels([])
+                axs[i, j].set_yticklabels([])
+                # Remove redundant plots
+                if i != j:
+                    axs[j, i].axis('off')
+    # Create the legend in the top right subplot
+    axs[0, -1].legend(legend_handles, covarianceNames, loc="center")
+    axs[0, -1].axis('off')  # turn off axis lines and labels
+    plt.tight_layout()
+    plt.show()
+
 
 ##################################
 ##################################
@@ -129,7 +206,9 @@ def all_response_ellipses(model, s, ctgInd, ctgStep, colorLabel,
 #
 #
 
+###########
 ### 1D BINOCULAR IMAGES
+###########
 
 
 def view_1D_bino_image(inputVec, x=[], title=''):
@@ -165,8 +244,9 @@ def view_all_filters_1D_bino_image(amaPy, x=[]):
         plt.subplot(nPairs, 2, n+1)
         view_1D_bino_image(fAll[n,:], x=[], title=f'F{n}')
 
-
+###########
 ### 1D BINOCULAR VIDEOS
+###########
 
 def unvectorize_1D_binocular_video(inputVec, nFrames=15):
     """
@@ -238,5 +318,36 @@ def plot_loss_list(lossList):
         plt.plot(np.log(lossList[i]))
     plt.show()
 
+
+
+##################################
+##################################
+#
+## PLOT MODEL OUTPUTS
+#
+##################################
+##################################
+#
+#
+
+def plot_estimate_statistics_sd(estMeans, estSd, ctgVal=None,
+        showPlot=True, unitsStr=''):
+    if ctgVal is None:
+        ctgVal = torch.linspace(-1, 1, len(estMeans))
+    if not torch.is_tensor(ctgVal):
+        ctgVal = torch.tensor(ctgVal)
+    # convert to numpy for matplotlib compatibility
+    estMeans_np = estMeans.detach().numpy()
+    estSd_np = estSd.detach().numpy()
+    ctgVal_np = ctgVal.detach().numpy()
+    plt.figure(figsize=(10, 6))
+    plt.plot(ctgVal_np, estMeans_np, color='blue')
+    plt.fill_between(ctgVal_np, estMeans_np - estSd_np,
+            estMeans_np + estSd_np, color='blue', alpha=0.2)
+    plt.axline((0,0), slope=1, color='black')
+    plt.xlabel('Value '+unitsStr)
+    plt.ylabel('Estimates '+unitsStr)
+    if showPlot:
+        plt.show()
 
 

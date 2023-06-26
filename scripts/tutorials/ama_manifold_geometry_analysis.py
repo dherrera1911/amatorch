@@ -47,23 +47,9 @@ from geomstats.geometry.spd_matrices import SPDMatrices
 ##############
 # Load ama struct from .mat file into Python
 data = spio.loadmat('./data/ama_dsp_noiseless.mat')
-# Extract contrast normalized, noisy stimulus
-s = data.get("s")
-s = torch.from_numpy(s)
-s = s.transpose(0,1)
-s = s.float()
-# Extract the vector indicating category of each stimulus row
-ctgInd = data.get("ctgInd")
-ctgInd = torch.tensor(ctgInd)
-ctgInd = ctgInd.flatten()
-ctgInd = ctgInd-1       # convert to python indexing (subtract 1)
-ctgInd = ctgInd.type(torch.LongTensor)  # convert to torch integer
-# Extract the values of the latent variable
-ctgVal = data.get("X")
-ctgVal = torch.from_numpy(ctgVal)
-ctgVal = ctgVal.flatten().float()
+# Extract stimuli and category vectors
+s, ctgInd, ctgVal = au.unpack_matlab_data(matlabData=data)
 nPixels = int(s.shape[1]/2)
-
 
 # <codecell>
 ##########################

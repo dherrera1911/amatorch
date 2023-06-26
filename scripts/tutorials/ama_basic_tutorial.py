@@ -489,7 +489,7 @@ plt.show()
 ##############
 # DEFINE MODEL TRAINING PARAMETERS
 ##############
-nEpochs = 50
+nEpochs = 25
 lrGamma = 0.3   # multiplication factor for lr decay
 lrStepSize = nEpochs/3
 learningRate = 0.01
@@ -572,6 +572,7 @@ fig.set_size_inches(10,8)
 # separated by their second-order statistics.
 
 
+
 # <codecell>
 ##############
 # PLOT THE ESTIMATES MEAN FOR EACH CATEGORY
@@ -585,7 +586,7 @@ estimSummTrained = au.get_estimate_statistics(estimates=estimTrained,
 # Plot the estimates means and CIs
 fig, ax = plt.subplots()
 ax.plot(ctgVal, estimSummTrained['estimateMean'])
-plt.fill_between(ctgVal, estimSummUntr['lowCI'], estimSummUntr['highCI'],
+plt.fill_between(ctgVal, estimSummTrained['lowCI'], estimSummTrained['highCI'],
         color='blue', alpha=0.2, label='95% CI')
 ax.axline((0, 0), slope=1, color='black')
 plt.ylim(ctgVal.min(), ctgVal.max())

@@ -8,6 +8,7 @@ import torch.nn.utils.parametrize as parametrize
 from torch.distributions.multivariate_normal import MultivariateNormal
 from ama_library import utilities as au
 from ama_library import quadratic_moments as qm
+from ama_library import geometry as ag
 import time
 
 #####################
@@ -89,7 +90,8 @@ class AMA(ABC, nn.Module):
         return torch.cat((self.fFixed, self.f))
 
 
-    def make_noisy_normalized_stimuli(self, s, ctgInd, samplesPerStim=1):
+    def make_noisy_normalized_stimuli(self, s, ctgInd=None, samplesPerStim=1):
+        """ Generate noisy stimuli samples and normalize them."""
         # Generate noisy stimuli samples
         n, d = s.shape
         # Repeat stimuli for samplesPerStim times along a new dimension
@@ -98,9 +100,13 @@ class AMA(ABC, nn.Module):
         noiseSamples = self.stimNoiseGen.sample((samplesPerStim, n))
         sAllNoisy = sRepeated + noiseSamples
         sAllNoisy = sAllNoisy.transpose(0, 1).reshape(-1, d)
-        ctgIndNoisy = ctgInd.repeat_interleave(samplesPerStim)
+        if not ctgInd is None:
+            ctgIndNoisy = ctgInd.repeat_interleave(samplesPerStim)
+        else:
+            ctgIndNoisy = None
         # Normalize the stimuli
-        sAllNoisy = au.normalize_stimuli_channels(s=sAllNoisy, nChannels=self.nChannels)
+        sAllNoisy = au.normalize_stimuli_channels(s=sAllNoisy,
+                nChannels=self.nChannels)
         return sAllNoisy, ctgIndNoisy
 
 
@@ -157,6 +163,7 @@ class AMA(ABC, nn.Module):
         self.nFilt = self.f.shape[0]
         self.nFiltAll = fAll.shape[0]
         # If new filters were manually added, expand the response noise covariance
+        ### NEED TO MODIFY FOR NON ISOTROPIC NOISE
         self.respNoiseCov = torch.eye(self.nFiltAll) * self.respNoiseVar
         # Update covariances, size nClasses*nFilt*nFilt
         # Assign precomputed valeus, if same as initialization
@@ -171,6 +178,14 @@ class AMA(ABC, nn.Module):
             self.respNoiseCov.repeat(self.nClasses, 1, 1)
         self.respNoiseGen = MultivariateNormal(loc=torch.zeros(self.nFiltAll),
                 covariance_matrix=self.respNoiseCov)
+        # If statistics were interpolated, return ctgVal to original length
+        if not len(self.ctgVal) == self.respCov.shape[0]:
+          nClasses = self.respCov.shape[0]
+          subsampleFactor = int(len(self.ctgVal) / nClasses)
+          subsampledInds = au.subsample_categories(nCtg=len(self.ctgVal),
+                                                subsampleFactor=subsampleFactor)
+          self.ctgVal = self.ctgVal[subsampleInds]
+          self.nClasses = len(self.respCov)
 
 
     #### Consider making this child-specific
@@ -185,7 +200,8 @@ class AMA(ABC, nn.Module):
                 in update_response_statistics()
         """
         # Remove parametrization so we can change the filters
-        parametrize.remove_parametrizations(self, "f", leave_parametrized=True)
+        if parametrize.is_parametrized(self, "f"):
+            parametrize.remove_parametrizations(self, "f", leave_parametrized=True)
         # Model parameters. Important to clone fNew, otherwise geotorch
         # modifies the original
         self.f = nn.Parameter(fNew.clone())
@@ -251,6 +267,24 @@ class AMA(ABC, nn.Module):
                 sameAsInit=sameAsInit)
 
 
+    def interpolate_class_statistics(self, nPoints=10, method='geodesic',
+                                     metric='BuressWasserstein'):
+        """ Add new classes to the model, by interpolating between the
+        existing classes.
+        """
+        # Interpolate the means 
+        self.respMean = ag.interpolate_means_euclidean(respMean=self.respMean.detach(),
+                                                       nPoints=nPoints)
+        # Interpolate the covariances
+        self.respCov = torch.tensor(
+            ag.interpolate_covariance_sequence(covariances=self.respCov.detach(),
+                                               nPoints=nPoints, metric=metric)
+            )
+        # Interpolate category values
+        self.ctgVal = ag.interpolate_means_euclidean(respMean=self.ctgVal.unsqueeze(1).detach(),
+                                                     nPoints=nPoints).squeeze()
+
+
     #########################
     ### FUNCTIONS FOR GETTING MODEL OUTPUTS FOR INPUT STIMULI
     #########################
@@ -310,7 +344,8 @@ class AMA(ABC, nn.Module):
         resp = self.get_responses(s, addStimNoise=addStimNoise,
                 addRespNoise=addRespNoise)
         # 2) Difference between responses and class means. (nStim x nClasses x nFilt)
-        respDiff = resp.unsqueeze(1).repeat(1, self.nClasses, 1) - \
+        nMeans = self.respMean.shape[0]  # Don't use self.nClasses in case interpolated
+        respDiff = resp.unsqueeze(1).repeat(1, nMeans, 1) - \
                 self.respMean.unsqueeze(0).repeat(nStim, 1, 1)
         ## Get the log-likelihood of each class
         # 3) Quadratic component of log-likelihood (with negative sign)
@@ -368,34 +403,6 @@ class AMA(ABC, nn.Module):
         elif method4est=='MMSE':
             estimates = torch.einsum('nc,c->n', posteriors, self.ctgVal)
         return estimates
-
-
-#    def compute_stimulus_filter_similarity(self, s, sAmp=None):
-#        """ Compute the similarity between each stimulus and the model
-#        filters, according to the similarity type indicated in model
-#        initialization.
-#        #
-#        Arguments:
-#        - s: Stimulus matrix. (nStim x nDim)
-#        - sAmp: Optional to save compute. Pre-computed amplitude spectrum
-#        of the stimulus dataset. Should be computed with
-#        'au.compute_amplitude_spectrum'. (nStim x nDim)
-#        #
-#        Output:
-#        - similarity: Similarity matrix between each stimulus and
-#        each filter. (nStim x nFilt)"""
-#        ### TO IMPLEMENT:
-#        # Implement signal-space similarity computing
-#        if sAmp is None:
-#            sAmp = au.compute_amplitude_spectrum(s)
-#        fAll = self.fixed_and_trainable_filters()
-#        fAmp = au.compute_amplitude_spectrum(fAll)
-#        # Get the normalization factor, i.e. inverse product of norms
-#        normFactor = torch.einsum('n,k->nk', 1/sAmp.norm(dim=1),
-#                1/fAmp.norm(dim=1))
-#        # Compute the Amplitude spectrum similarity
-#        similarity = torch.einsum('nd,kd,nk->nk', sAmp, fAmp, normFactor)
-#        return similarity
 
 
 #####################

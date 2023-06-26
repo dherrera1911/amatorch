@@ -209,7 +209,7 @@ def fit_by_pairs(nEpochs, model, trainDataLoader, lossFun, opt_fun,
         # If not the first iteration, fix current filters and add new trainable
         if (p>0):
             model.move_trainable_2_fixed(sAll=sAll, ctgInd=ctgInd, sAmp=sAmp)
-        print(f'Pair {p}')
+        print(f'Pair {p+1}')
         # Train the current pair of trainable filters
         trainingLoss[p], elapsedTimes[p] = fit_multiple_seeds(nEpochs=nEpochs,
                 model=model, trainDataLoader=trainDataLoader, lossFun=lossFun,
@@ -462,6 +462,18 @@ def compute_amplitude_spectrum(s):
     return sAmp
 
 
+def interpolate_category_values(ctgVal, nPoints):
+    nVals = len(ctgVal) - 1
+    interpList = []
+    for n in range(nVals):
+        interp = np.linspace(ctgVal[n], ctgVal[n+1], num=nPoints+2)
+        interpList.append(interp[:-1])
+    ctgValInterp = np.concatenate(interpList)
+    ctgValInterp = np.append(ctgValInterp, ctgVal[-1])
+    return ctgValInterp
+    
+
+
 ##################################
 ##################################
 #
@@ -500,4 +512,64 @@ def subsample_covariance(covariance, classInd, filtInd):
     covPlt = covPlt[:, filtInd, :]
     covPlt = covPlt[:, :, filtInd]
     return covPlt
+
+
+def subsample_categories(nCtg, subsampleFactor):
+    """
+    Subsample the number of categories, while keeping the middle category.
+    Arguments:
+        - nCtg: Number of categories
+        - subsampleFactor: Factor by which the categories will be subsampled
+    Output:
+        - subsampledInds: Vector containing the indices of the subsampled categories.
+            These are equispaced with one another, and keep the middle category.
+    """
+    # Generate original vector
+    allInds = np.arange(nCtg)
+    # Ensure nCtg is odd
+    assert len(allInds) % 2 == 1, "nCtg must be odd."
+    # Find middle index
+    midIdx = len(allInds) // 2
+    # Calculate the start index for the left and right subsample
+    start_left = midIdx % subsampleFactor
+    start_right = midIdx + subsampleFactor
+    # Subsample vector, maintaining the middle element
+    subsampledInds = np.concatenate((allInds[start_left:midIdx:subsampleFactor], 
+                                 allInds[midIdx:midIdx+1], 
+                                 allInds[start_right::subsampleFactor]))
+    return subsampledInds
+
+
+
+##################################
+##################################
+#
+## UTILITY FUNCTIONS
+#
+##################################
+##################################
+#
+#
+
+def unpack_matlab_data(matlabData):
+    # Extract disparity stimuli
+    if 's' in matlabData.keys():
+      s = matlabData.get("s")
+    else:
+      s = matlabData.get("Iret")
+    s = torch.from_numpy(s)
+    s = s.transpose(0, 1)
+    s = s.float()
+    # Extract the vector indicating category of each stimulus row
+    ctgInd = matlabData.get("ctgInd")
+    ctgInd = torch.tensor(ctgInd)
+    ctgInd = ctgInd.flatten()
+    ctgInd = ctgInd-1       # convert to python indexing (subtract 1)
+    ctgInd = ctgInd.type(torch.LongTensor)  # convert to torch integer
+    # Extract the values of the latent variable
+    ctgVal = matlabData.get("X")
+    ctgVal = torch.from_numpy(ctgVal)
+    ctgVal = ctgVal.flatten().float()
+    return (s, ctgInd, ctgVal)
+
 
