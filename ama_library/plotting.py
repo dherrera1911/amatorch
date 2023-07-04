@@ -266,7 +266,7 @@ def unvectorize_1D_binocular_video(inputVec, nFrames=15):
         columns as pixels. (nStim x nFrames x nPixels*2)
     """
     if inputVec.dim() == 1:
-        inputVec.unsqueeze(0)
+        inputVec = inputVec.unsqueeze(0)
     nVec = inputVec.shape[0]
     nPixels = round(inputVec.shape[1]/(nFrames*2))
     outputMat = torch.zeros(nVec, nFrames, nPixels*2)
@@ -330,23 +330,84 @@ def plot_loss_list(lossList):
 #
 #
 
-def plot_estimate_statistics_sd(estMeans, estSd, ctgVal=None,
-        showPlot=True, unitsStr=''):
+def sd_to_ci(means, sd, multiplier=1.96):
+    """
+    Convert standard deviation to confidence interval.
+    """
+    ciHigh = means + multiplier * sd
+    ciLow = means - multiplier * sd
+    ci = torch.cat((ciLow.unsqueeze(0), ciHigh.unsqueeze(0)), dim=0)
+    return ci
+
+
+def plot_estimate_statistics_sd(estMeans, errorInterval, ctgVal=None,
+                                showPlot=True, unitsStr=''):
     if ctgVal is None:
         ctgVal = torch.linspace(-1, 1, len(estMeans))
     if not torch.is_tensor(ctgVal):
         ctgVal = torch.tensor(ctgVal)
+    if errorInterval.dim() == 1:
+        errorInterval = sd_to_ci(means=estMeans, sd=errorInterval,
+                                 multiplier=1)
     # convert to numpy for matplotlib compatibility
-    estMeans_np = estMeans.detach().numpy()
-    estSd_np = estSd.detach().numpy()
-    ctgVal_np = ctgVal.detach().numpy()
+    estMeans = estMeans.detach().numpy()
+    ctgVal = ctgVal.detach().numpy()
     plt.figure(figsize=(10, 6))
-    plt.plot(ctgVal_np, estMeans_np, color='blue')
-    plt.fill_between(ctgVal_np, estMeans_np - estSd_np,
-            estMeans_np + estSd_np, color='blue', alpha=0.2)
+    plt.plot(ctgVal, estMeans, color='blue')
+    plt.fill_between(ctgVal, errorInterval[0,:], errorInterval[1,:],
+                     color='blue', alpha=0.2)
     plt.axline((0,0), slope=1, color='black')
     plt.xlabel('Value '+unitsStr)
     plt.ylabel('Estimates '+unitsStr)
+    if showPlot:
+        plt.show()
+
+
+def plot_posteriors(posteriors, ctgInd=None, ctg2plot=None, ctgVal=None,
+                    traces2plot=None, quantiles=[0.16, 0.84], showPlot=True):
+    """ Plot the individual posteriors obtained from the model, as well as
+    the median posterior.
+    Arguments:
+      - posteriors: Tensor with the posteriors, of size (nStim x nClasses)
+      - ctgInd: Category index of each stimulus. (nStim)
+      - ctg2plot: Categories to plot. If None, plot all categories.
+      - ctgVal: Category values. If None, use interval [-1, 1].
+      - traces2plot: Number of traces to plot per category. If None,
+        plot all traces.
+      - showPlot: If True, show the plot. If False, return the plot
+    """
+    if ctgInd is None:
+        ctgInd = torch.zeros(posteriors.shape[0])
+    if ctg2plot is None:
+        ctg2plot = torch.unique(ctgInd)
+    if ctgVal is None:
+        ctgVal = torch.linspace(-1, 1, posteriors.shape[1])
+    # Get number of columns and rows to subplot
+    maxColumns = 5
+    nColumns = min(len(ctg2plot), maxColumns)
+    nRows = int(np.ceil(len(ctg2plot)/nColumns))
+    # Remove categories not to plot
+    inds2keep = torch.isin(ctgInd, torch.tensor(ctg2plot))
+    posteriors = posteriors[inds2keep, :]
+    ctgInd = ctgInd[inds2keep]
+    # Compute median posterior for each class
+    for i in range(len(ctg2plot)):
+        (iInds,) = torch.where(ctgInd == ctg2plot[i])
+        ctgPosteriors = posteriors[iInds, :].numpy()
+        medianPosterior = np.median(ctgPosteriors, axis=0)
+        ciPosterior = np.quantile(ctgPosteriors, q=quantiles, axis=0)
+        if traces2plot is not None:
+            tracePosteriors = ctgPosteriors[:traces2plot,:]
+        else:
+            tracePosteriors = ctgPosteriors
+        # Plot the posteriors
+        plt.subplot(nRows, nColumns, i+1)
+        plt.axvline(x=ctgVal[ctg2plot[i]], color='blue')
+        plt.fill_between(ctgVal, ciPosterior[0,:], ciPosterior[1,:],
+                          color='black', alpha=0.3)
+        plt.plot(ctgVal, tracePosteriors.transpose(), color='red',
+                 linewidth=0.3, alpha=0.3)
+        plt.plot(ctgVal, medianPosterior, color='black', linewidth=2)
     if showPlot:
         plt.show()
 
