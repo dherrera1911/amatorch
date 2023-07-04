@@ -49,7 +49,6 @@ import ama_library.plotting as ap
 data = spio.loadmat('./data/ama_dsp_noiseless.mat')
 # Extract stimuli and category vectors
 s, ctgInd, ctgVal = au.unpack_matlab_data(matlabData=data)
-nPixels = int(s.shape[1]/2)
 
 
 # <markdowncell>
