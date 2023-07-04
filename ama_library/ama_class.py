@@ -334,29 +334,17 @@ class AMA(ABC, nn.Module):
             - addRespNoise: Logical that indicates whether to add noise to the
                 filter responses.
         Output:
-            - log_likelihood: Matrix with the log-likelihood function across
+            - logLikelihoods: Matrix with the log-likelihood function across
             classes for each stimulus. (nStim x nClasses)
         """
         if s.dim() == 1:
             s = s.unsqueeze(0)
-        nStim = s.shape[0]
         # 1) Get filter responses
         resp = self.get_responses(s, addStimNoise=addStimNoise,
                 addRespNoise=addRespNoise)
-        # 2) Difference between responses and class means. (nStim x nClasses x nFilt)
-        nMeans = self.respMean.shape[0]  # Don't use self.nClasses in case interpolated
-        respDiff = resp.unsqueeze(1).repeat(1, nMeans, 1) - \
-                self.respMean.unsqueeze(0).repeat(nStim, 1, 1)
-        ## Get the log-likelihood of each class
-        # 3) Quadratic component of log-likelihood (with negative sign)
-        quadratics = -0.5 * torch.einsum('ncd,cdb,ncb->nc', respDiff,
-                self.respCov.inverse(), respDiff)
-        # 4) Constant term of log-likelihood
-        llConst = -0.5 * self.nFiltAll * torch.log(2*torch.tensor(torch.pi)) - \
-            0.5 * torch.logdet(self.respCov)
-        # 5) Add quadratics and constants to get log-likelihood
-        log_likelihood = quadratics + llConst.repeat(nStim, 1)
-        return log_likelihood
+        # 2) Get log-likelihood from the responses
+        logLikelihoods = self.resp_2_log_likelihood(resp)
+        return logLikelihoods
 
 
     def get_posteriors(self, s, addStimNoise=True, addRespNoise=True):
@@ -377,31 +365,102 @@ class AMA(ABC, nn.Module):
         if s.dim() == 1:
             s = s.unsqueeze(0)
         # 1) Get log-likelihoods
-        log_likelihoods = self.get_log_likelihood(s, addStimNoise=addStimNoise,
+        logLikelihoods = self.get_log_likelihood(s, addStimNoise=addStimNoise,
                 addRespNoise=addRespNoise)
-        # 2) Add quadratics and constants and softmax to get posterior probs
-        posteriors = F.softmax(log_likelihoods, dim=1)
+        # 2) Get posteriors from log-likelihoods
+        posteriors = self.log_likelihood_2_posterior(logLikelihoods)
         return posteriors
 
 
     def get_estimates(self, s, method4est='MAP', addStimNoise=True,
             addRespNoise=True):
         """ Compute latent variable estimates for each stimulus in s.
-        #
         Arguments:
-            - s (nStim x nDim) is stimulus matrix
-        #
+            - s: stimulus matrix for which to compute posteriors. (nStim x nDim)
+            - addStimNoise: Logical that indicates whether to add noise to
+                the input stimuli s. Added noise has the characteristics stored
+                in the class.
+            - addRespNoise: Logical that indicates whether to add noise to the
+                filter responses.
         Output:
-            - estimates (nStim). Vector with the estimate for each stimulus
+            - estimates: Vector with the estimated latent variable for each
+                stimulus. (nStim)
         """
+        # 1) Compute posteriors from the stimuli
         posteriors = self.get_posteriors(s, addStimNoise=addStimNoise,
                 addRespNoise=addRespNoise)
+        # 2) Get estimates from the posteriors
+        estimates = self.posterior_2_estimate(posteriors, method4est=method4est)
+        return estimates
+
+
+    def resp_2_log_likelihood(self, resp):
+        """ Compute log-likelihood of each class given the filter responses.
+        Arguments:
+            - resp: Matrix of filter responses. (nStim x nDim)
+        Output:
+            - logLikelihoods: Matrix with the log-likelihood function across
+            classes for each stimulus. (nStim x nClasses)
+        """
+        nStim = resp.shape[0]
+        # 1) Difference between responses and class means. (nStim x nClasses x nFilt)
+        nMeans = self.respMean.shape[0]  # Don't use self.nClasses in case interpolated
+        respDiff = resp.unsqueeze(1).repeat(1, nMeans, 1) - \
+                self.respMean.unsqueeze(0).repeat(nStim, 1, 1)
+        ## Get the log-likelihood of each class
+        # 2) Quadratic component of log-likelihood (with negative sign)
+        quadratics = -0.5 * torch.einsum('ncd,cdb,ncb->nc', respDiff,
+                self.respCov.inverse(), respDiff)
+        # 3) Constant term of log-likelihood
+        llConst = -0.5 * self.nFiltAll * torch.log(2*torch.tensor(torch.pi)) - \
+            0.5 * torch.logdet(self.respCov)
+        # 4) Add quadratics and constants to get log-likelihood
+        logLikelihoods = quadratics + llConst.repeat(nStim, 1)
+        return logLikelihoods
+
+
+    def log_likelihood_2_posterior(self, logLikelihoods):
+        """ Convert log-likelihoods to posterior probabilities.
+        Arguments:
+            - logLikelihoods: Matrix with the log-likelihood function across
+            classes for each stimulus. (nStim x nClasses)
+        Output:
+            - posteriors: Matrix with the posterior distribution across classes
+            for each stimulus. (nStim x nClasses)
+        """
+        posteriors = F.softmax(logLikelihoods, dim=1)
+        return posteriors
+
+
+    def posterior_2_estimate(self, posteriors, method4est='MAP', ctgVal=None):
+        """ Convert posterior probabilities to estimates of the latent variable.
+        Arguments:
+            - posteriors: Matrix with the posterior distribution across classes
+              for each stimulus. (nStim x nClasses)
+            - method4est: Method to use for estimating the latent variable.
+                Options are 'MAP' (maximum a posteriori) or 'MMSE' (minimum
+                mean squared error).
+            - ctgVal: Vector with the values of the latent variable for each
+                category. If None, the values stored in the class are used.
+                Must match the number of categories in the posteriors.
+        Output:
+            - estimates: Vector with the estimated latent variable for each
+                stimulus. (nStim)
+        """
+        if ctgVal is None:
+            ctgVal = self.ctgVal
+        # Check that ctgVal has the same number of elements as the number
+        # of categories in the posteriors. The two can differ if
+        # category interpolation was used.
+        if len(ctgVal) != posteriors.shape[1]:
+            raise ValueError('''Error: ctgVal must have the same number of
+                elements as the number of categories in the posteriors.''')
         if method4est=='MAP':
             # Get maximum posteriors indices of each stim, and its value
             (a, estimateInd) = torch.max(posteriors, dim=1)
-            estimates = self.ctgVal[estimateInd]
+            estimates = ctgVal[estimateInd]
         elif method4est=='MMSE':
-            estimates = torch.einsum('nc,c->n', posteriors, self.ctgVal)
+            estimates = torch.einsum('nc,c->n', posteriors, ctgVal)
         return estimates
 
 
