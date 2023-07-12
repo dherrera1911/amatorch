@@ -20,33 +20,60 @@ import time
 class AMA(ABC, nn.Module):
     def __init__(self, sAll, ctgInd, nFilt=2, respNoiseVar=torch.tensor(0.02),
             ctgVal=None, filtNorm='broadband', respCovPooling='pre-filter',
-            printWarnings=True):
+            printWarnings=True, device='cpu'):
         """ AMA model object.
+        -----------------
         Arguments:
-            - sAll: Input stimuli. (nStim x nDim)
-            - ctgInd: Category index of each stimulus. (nStim)
-            - nFilt: Number of filters to train
-            - respNoiseVar: Variance of filter response noise. Scalar
-            - ctgVal: Value of the latent variable corresponding to each category.
-                Defaults to equispaced points in [-1, 1].
-            - filtNorm: String indicating method use to normalize filter responses.
-                Can be 'broadband' (default) or 'narrowband'
-            - respCovPooling: String indicating how to compute the filter response
-                covariances. 'pre-filter' can be less accurate depending on the
-                problem, but is faster. 'post-filter' is slower but gives
-                exact results. Defaults to 'post-filter'
+          - sAll: Input stimuli. (nStim x nDim)
+          - ctgInd: Category index of each stimulus. (nStim)
+          - nFilt: Number of filters to train
+          - respNoiseVar: Variance of filter response noise. Scalar
+          - ctgVal: Value of the latent variable corresponding to each category.
+              Defaults to equispaced points in [-1, 1].
+          - filtNorm: String indicating method use to normalize filter responses.
+              Can be 'broadband' (default) or 'narrowband'
+          - respCovPooling: String indicating how to compute the filter response
+              covariances. 'pre-filter' can be less accurate depending on the
+              problem, but is faster. 'post-filter' is slower but gives
+              exact results. Defaults to 'post-filter'
+          - printWarnings: Boolean indicating whether to print warnings.
+          - device: Device to use. Defaults to 'cpu'
+        -----------------
+        Attributes:
+          - f: Trainable filters. (nFilt x nDim)
+          - fFixed: Fixed filters. (nFiltFixed x nDim)
+          - ctgVal: Value of the latent variable corresponding to each category
+          - stimMean: Mean of the stimuli for each class
+          - stimCov: Covariance of the stimuli for each class
+          - respMean: Mean of the responses for each class
+          - respCovNoiseless: Covariance of the responses for each class
+          - respCov: Covariance of the responses for each class, including filter noise
+          - respNoiseVar: Variance of filter response noise
+          - respNoiseCov: Covariance of filter response noise
+          - stimNoiseGen: Pixel noise generator
+          - respNoiseGen: Response noise generator
+          - nFilt: Number of trainable filters
+          - nFiltAll: Number of filters (trainable + fixed)
+          - nDim: Number of dimensions of inputs
+          - nClasses: Number of classes
+          - filtNorm: Method to normalize filter responses
+          - respCovPooling: Method to compute filter response covariances
+          - printWarnings: Boolean indicating whether to print warnings
+          - device: Device to use
+          - pixelCov: Covariance of the pixel noise
         """
         super().__init__()
         print('Initializing AMA')
         self.printWarnings = printWarnings
+        self.device = device
         ### Make initial random filters
-        fInit = torch.randn(nFilt, sAll.shape[1])
+        fInit = torch.randn(nFilt, sAll.shape[1], device=device)  # DEVICE
         fInit = F.normalize(fInit, p=2, dim=1)
         # Model parameters
         self.f = nn.Parameter(fInit)
         geotorch.sphere(self, "f")
         # Attribute with fixed (non-trainable) filters
-        self.fFixed = torch.tensor([])
+        self.fFixed = torch.tensor([], device=device)  # DEVICE
         # Assign handy variables
         self.nFilt = self.f.shape[0]  # Number of trainable filters
         self.nFiltAll = self.nFilt  # Number of filters including fixed filters
@@ -55,17 +82,17 @@ class AMA(ABC, nn.Module):
         self.filtNorm = filtNorm  # Method to normalize the filters
         self.respCovPooling = respCovPooling  # Method to generate response covariance
         # If no category values given, assign equispaced values in [-1,1]
-        if ctgVal == None:
-            ctgVal = np.linspace(-1, 1, self.nClasses)
-        self.ctgVal = ctgVal
-        # Make filter noise matrix (##IMPLEMENT GENERAL COVARIANCE LATER##)
-        self.respNoiseVar = torch.tensor(respNoiseVar)
-        self.respNoiseCov = torch.eye(self.nFiltAll) * self.respNoiseVar
+        if ctgVal is None:
+            ctgVal = torch.linspace(start=-1, end=1, steps=self.nClasses)
+        self.ctgVal = ctgVal.to(device)
+        # Make filter noise matrix (##IMPLEMENT GENERAL NOISE COVARIANCE LATER##)
+        self.respNoiseVar = torch.tensor(respNoiseVar, device=device)
+        self.respNoiseCov = torch.eye(self.nFiltAll, device=device) * self.respNoiseVar # DEVICE
         # Make random number generators for pixel and response noise
-        self.stimNoiseGen = MultivariateNormal(loc=torch.zeros(self.nDim),
-                covariance_matrix=self.pixelCov)
-        self.respNoiseGen = MultivariateNormal(loc=torch.zeros(self.nFiltAll),
-                covariance_matrix=self.respNoiseCov)
+        self.stimNoiseGen = MultivariateNormal(loc=torch.zeros(self.nDim, device=device),
+                covariance_matrix=self.pixelCov)  # DEVICE
+        self.respNoiseGen = MultivariateNormal(loc=torch.zeros(self.nFiltAll, device=device),
+                covariance_matrix=self.respNoiseCov)  # DEVICE
         ### Compute the conditional statistics of the stimuli
         self.stimMean = self.compute_norm_stim_mean(s=sAll, ctgInd=ctgInd)
         self.stimCov = self.compute_norm_stim_cov(s=sAll, ctgInd=ctgInd)
@@ -108,6 +135,31 @@ class AMA(ABC, nn.Module):
         sAllNoisy = au.normalize_stimuli_channels(s=sAllNoisy,
                 nChannels=self.nChannels)
         return sAllNoisy, ctgIndNoisy
+
+
+    def to(self, device):
+        """ Move model to device. """
+        super().to(device)
+        self.device = device
+        self.fFixed = self.fFixed.to(device)
+        self.ctgVal = self.ctgVal.to(device)
+        self.stimMean = self.stimMean.to(device)
+        self.stimCov = self.stimCov.to(device)
+        self.respMean = self.respMean.to(device)
+        self.respCovNoiseless = self.respCovNoiseless.to(device)
+        self.respCov = self.respCov.to(device)
+        self.respNoiseCov = self.respNoiseCov.to(device)
+        self.pixelCov = self.pixelCov.to(device)
+        self.respNoiseGen = MultivariateNormal(loc=torch.zeros(self.nFiltAll, device=device),
+                covariance_matrix=self.respNoiseCov)
+        self.stimNoiseGen = MultivariateNormal(loc=torch.zeros(self.nDim, device=device),
+                covariance_matrix=self.pixelCov)
+        if self.amaType == 'Isotropic':
+            self.smNoiseW = self.smNoiseW.to(device)
+            self.smMeanW = self.smMeanW.to(device)
+            self.nonCentrality = self.nonCentrality.to(device)
+            self.invNormMean = self.invNormMean.to(device)
+            self.pixelSigma = self.pixelSigma.to(device)
 
 
     #########################
@@ -164,28 +216,30 @@ class AMA(ABC, nn.Module):
         self.nFiltAll = fAll.shape[0]
         # If new filters were manually added, expand the response noise covariance
         ### NEED TO MODIFY FOR NON ISOTROPIC NOISE
-        self.respNoiseCov = torch.eye(self.nFiltAll) * self.respNoiseVar
+        self.respNoiseCov = torch.eye(self.nFiltAll, device=self.device) * \
+            self.respNoiseVar
         # Update covariances, size nClasses*nFilt*nFilt
         # Assign precomputed valeus, if same as initialization
         self.respMean = self.compute_response_mean(s=sAll, ctgInd=ctgInd, sAmp=sAmp)
         self.respCovNoiseless = self.compute_response_cov(s=sAll, ctgInd=ctgInd,
-                sAmp=sAmp)
-        if self.amaType=='Isotropic' and self.printWarnings:
+              sAmp=sAmp)
+        if self.amaType == 'Isotropic' and self.printWarnings:
             print('''Warning: Response statistics update assuming that stimuli
                     for updating and for initialization are the same''')
         # Add response noise to the stimulus-induced variability of responses
         self.respCov = self.respCovNoiseless + \
             self.respNoiseCov.repeat(self.nClasses, 1, 1)
-        self.respNoiseGen = MultivariateNormal(loc=torch.zeros(self.nFiltAll),
-                covariance_matrix=self.respNoiseCov)
+        self.respNoiseGen = MultivariateNormal(
+            loc=torch.zeros(self.nFiltAll, device=self.device),
+            covariance_matrix=self.respNoiseCov)
         # If statistics were interpolated, return ctgVal to original length
         if not len(self.ctgVal) == self.respCov.shape[0]:
-          nClasses = self.respCov.shape[0]
-          subsampleFactor = int(len(self.ctgVal) / nClasses)
-          subsampledInds = au.subsample_categories(nCtg=len(self.ctgVal),
-                                                subsampleFactor=subsampleFactor)
-          self.ctgVal = self.ctgVal[subsampleInds]
-          self.nClasses = len(self.respCov)
+            nClasses = self.respCov.shape[0]
+            subsampleFactor = int(len(self.ctgVal) / nClasses)
+            subsampleInds = au.subsample_categories(nCtg=len(self.ctgVal),
+                                                  subsampleFactor=subsampleFactor)
+            self.ctgVal = self.ctgVal[subsampleInds]
+            self.nClasses = len(self.respCov)
 
 
     #### Consider making this child-specific
@@ -204,15 +258,16 @@ class AMA(ABC, nn.Module):
             parametrize.remove_parametrizations(self, "f", leave_parametrized=True)
         # Model parameters. Important to clone fNew, otherwise geotorch
         # modifies the original
-        self.f = nn.Parameter(fNew.clone())
+        self.f = nn.Parameter(fNew.clone().to(self.device))
         geotorch.sphere(self, "f")
-        self.f = fNew
+        self.f = fNew.to(self.device)
         # Update model values
         self.update_response_statistics(sAll=sAll, ctgInd=ctgInd, sAmp=sAmp,
                 sameAsInit=sameAsInit)
         # In case new filters were added, adapt the noise generator
-        self.respNoiseGen = MultivariateNormal(loc=torch.zeros(self.nFiltAll),
-                covariance_matrix=self.respNoiseCov)
+        self.respNoiseGen = MultivariateNormal(
+            loc=torch.zeros(self.nFiltAll, device=self.device),
+            covariance_matrix=self.respNoiseCov)
 
 
     def reinitialize_trainable(self, sAll, ctgInd, sAmp=None, sameAsInit=True):
@@ -222,7 +277,7 @@ class AMA(ABC, nn.Module):
         fRandom = torch.randn(self.nFilt, self.nDim)
         fRandom = F.normalize(fRandom, p=2, dim=1)
         # Statistics are updated in assign_filter_values
-        self.assign_filter_values(fRandom, sAll=sAll, ctgInd=ctgInd,
+        self.assign_filter_values(fNew=fRandom, sAll=sAll, ctgInd=ctgInd,
                 sAmp=sAmp, sameAsInit=sameAsInit)
 
 
@@ -244,7 +299,7 @@ class AMA(ABC, nn.Module):
             - fFixed: Te tensor with the new filters. (nFilt x nDim)
             - Rest of input parameters are as in update_response_statistics()
         """
-        self.fFixed = fFixed.clone()
+        self.fFixed = fFixed.clone().to(self.device)
         self.update_response_statistics(sAll=sAll, ctgInd=ctgInd, sAmp=None,
                 sameAsInit=True)
 
@@ -259,7 +314,8 @@ class AMA(ABC, nn.Module):
                in update_response_statistics()
         """
         # Initialize new random filters and set length to 1 
-        fNew = F.normalize(torch.randn(nFiltNew, self.nDim), p=2, dim=1)
+        fNew = F.normalize(torch.randn(nFiltNew, self.nDim, device=self.device),
+                           p=2, dim=1)
         fOld = self.f.detach().clone()
         f = torch.cat((fOld, fNew))  # Concatenate old and new filters
         # assign_filter_values updates statistics
@@ -473,29 +529,32 @@ class AMA(ABC, nn.Module):
 class Isotropic(AMA):
     def __init__(self, sAll, ctgInd, nFilt=2, respNoiseVar=torch.tensor(0.02),
             pixelVar=torch.tensor(0), ctgVal=None, filtNorm='broadband',
-            respCovPooling='post-filter', printWarnings=False):
+            respCovPooling='post-filter', printWarnings=False, device='cpu'):
         # Compute and save as attributes the quadratic-moments weights
         # that are needed to compute statistics of stimuli under isotrpic noise
         # and normalization
         print('Computing weights for quadratic moments ...')
         start = time.time()
-        self.set_isotropic_params(sAll=sAll,
-                pixelSigma=torch.sqrt(torch.tensor(pixelVar)))
+        self.device = device
+        self.pixelSigma = torch.sqrt(pixelVar).to(device)
+        self.set_isotropic_params(sAll=sAll)
         end = time.time()
         print(f'Done in {end-start} seconds')
         # Convert the pixel variance (only one number needed because isotropic),
         # into a pixel covariance matrix
-        self.pixelCov = torch.eye(sAll.shape[1]) * torch.tensor(pixelVar)
+        self.pixelCov = torch.eye(sAll.shape[1], device=self.device) * \
+            pixelVar.to(self.device)
         self.amaType = 'Isotropic'
         # Analytic formulas only work with 1 channel
         self.nChannels = 1
         # Initialize parent class, which will fill in the rest of the statistics
         super().__init__(sAll=sAll, ctgInd=ctgInd, nFilt=nFilt,
                 respNoiseVar=respNoiseVar, ctgVal=ctgVal, filtNorm=filtNorm,
-                respCovPooling=respCovPooling, printWarnings=printWarnings)
+                respCovPooling=respCovPooling, printWarnings=printWarnings,
+                device=device)
 
 
-    def set_isotropic_params(self, sAll, pixelSigma):
+    def set_isotropic_params(self, sAll):
         """ If stimulus noise is isotropic, set some parameters
         related to stimulus noise, and precompute quantities that will
         save compute time.
@@ -503,18 +562,18 @@ class Isotropic(AMA):
             - sAll: Stimulus dataset used to compute statistics
             - pixelSigma: Standard deviation of input noise
         """
-        self.pixelSigma = pixelSigma
         # Weigths for the second moments
         nc, meanW, noiseW = qm.compute_isotropic_formula_weights(s=sAll,
-                sigma=pixelSigma)
+                sigma=self.pixelSigma)
         # Square mean of stimuli divided by standard deviation
-        self.nonCentrality = nc
+        self.nonCentrality = nc.to(self.device)
         # Weighting factors for the mean outer product in second moment estimation
-        self.smMeanW = meanW
+        self.smMeanW = meanW.to(self.device)
         # Weighting factors for the identity matrix in second moment estimation
-        self.smNoiseW = noiseW
+        self.smNoiseW = noiseW.to(self.device)
         # Expected value of the inverse of the norm of each noisy stimulus
-        self.invNormMean = qm.inv_ncx_batch(mu=sAll, sigma=pixelSigma)
+        self.invNormMean = qm.inv_ncx_batch(mu=sAll,
+                                            sigma=self.pixelSigma).to(self.device)
 
 
     def compute_norm_stim_mean(self, s, ctgInd, sameAsInit=True):
@@ -648,7 +707,7 @@ class Isotropic(AMA):
                 if s is None:
                     raise ValueError('''Error: If not same stimuli as initialization,
                             you need to provide new stimuli as input''')
-                # If not sameAsInit, use compute new stim covariances
+                # If not sameAsInit, use new stim to compute covariances
                 stimCov = self.compute_norm_stim_cov(s=s, ctgInd=ctgInd,
                         sameAsInit=sameAsInit)
                 respCov = torch.einsum('kd,cdb,mb->ckm', fAll, stimCov, fAll)
@@ -662,6 +721,8 @@ class Isotropic(AMA):
             else:
                 nc, meanW, noiseW = qm.compute_isotropic_formula_weights(s=s,
                         sigma=self.pixelSigma)
+                meanW = meanW.to(s.device)
+                noiseW = noiseW.to(s.device)
             if self.filtNorm=='narrowband':
                 # If narrowband, get the parameters needed to implement normalization
                 if sAmp is not None:
@@ -684,6 +745,7 @@ class Isotropic(AMA):
                 respMean = self.compute_response_mean(s=s, ctgInd=ctgInd,
                         sAmp=sAmp, sameAsInit=sameAsInit)
                 respCov = qm.secondM_2_cov(secondM=respSM, mean=respMean)
+        respCov = (respCov + respCov.transpose(1,2))/2
         return respCov
 
 
@@ -721,12 +783,12 @@ class Empirical(AMA):
     def __init__(self, sAll, ctgInd, nFilt=2, respNoiseVar=torch.tensor(0.02),
             pixelCov=torch.tensor(0), ctgVal=None, filtNorm='broadband',
             respCovPooling='post-filter', samplesPerStim=5, nChannels=1,
-            printWarnings=False):
+            printWarnings=False, device='cpu'):
         # If pixel Cov is only a scalar, turn into isotropic noise matrix
         if type(pixelCov) is float:
-            pixelCov = torch.tensor(pixelCov)
+            pixelCov = torch.tensor(pixelCov, device=device)
         if pixelCov.dim()==0:
-            self.pixelCov = torch.eye(sAll.shape[1]) * pixelCov
+            self.pixelCov = torch.eye(sAll.shape[1], device=device) * pixelCov
         else:
             if pixelCov.shape[0] != sAll.shape[1]:
                 raise ValueError('''Error: Stimulus noise covariance needs to
@@ -745,10 +807,12 @@ class Empirical(AMA):
         ctgIndNoisy = ctgInd.repeat_interleave(samplesPerStim)
         sAllNoisy = au.normalize_stimuli_channels(sAllNoisy, nChannels=nChannels)
         self.amaType = 'Empirical'
+        self.device = device
         # Initialize parent class, which will fill in the rest of the statistics
         super().__init__(sAll=sAllNoisy, ctgInd=ctgIndNoisy, nFilt=nFilt,
                 respNoiseVar=respNoiseVar, ctgVal=ctgVal, filtNorm=filtNorm,
-                respCovPooling=respCovPooling, printWarnings=printWarnings)
+                respCovPooling=respCovPooling, printWarnings=printWarnings,
+                device=device)
 
 
     def compute_norm_stim_mean(self, s, ctgInd, isNormalized=True):
@@ -879,6 +943,7 @@ class Empirical(AMA):
                 print('''Warning: Response covariance updating is assuming
                         response means were already updated''')
             respCov = qm.secondM_2_cov(secondM=respSM, mean=self.respMean)
+        respCov = (respCov + respCov.transpose(1,2))/2
         return respCov
 
 

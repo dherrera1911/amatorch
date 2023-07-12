@@ -432,24 +432,27 @@ def normalize_stimuli_channels(s, nChannels=1):
 def category_means(s, ctgInd):
     nDim = int(s.shape[1])
     # Compute the mean of the stimuli for each category
-    nClasses = np.unique(ctgInd).size
-    stimMean = torch.zeros(nClasses, nDim)
+    device = s.device
+    nClasses = torch.unique(ctgInd).size()[0]
+    stimMean = torch.zeros(nClasses, nDim, device=device)
     for cl in range(nClasses):
-        levelInd = [i for i, j in enumerate(ctgInd) if j == cl]
-        stimMean[cl,:] = torch.mean(s[levelInd, :], dim=0)
+        mask = (ctgInd == cl)
+        sClass = s[mask]
+        stimMean[cl,:] = torch.mean(sClass, dim=0)
     return stimMean
 
 
 def category_secondM(s, ctgInd):
     nDim = int(s.shape[1])
-    # Compute the mean of the stimuli for each category
-    nClasses = np.unique(ctgInd).size
-    stimSM = torch.zeros(nClasses, nDim, nDim)
+    # Compute the second moment of the stimuli for each category
+    nClasses = torch.unique(ctgInd).size()[0]
+    device = s.device
+    stimSM = torch.zeros(nClasses, nDim, nDim, device=device)
     for cl in range(nClasses):
-        levelInd = [i for i, j in enumerate(ctgInd) if j == cl]
-        nStimLevel = len(levelInd)
-        stimSM[cl,:,:] = torch.einsum('nd,nb->db', s[levelInd,:],
-                s[levelInd,:]) / nStimLevel
+        mask = (ctgInd == cl)
+        sClass = s[mask]
+        nStimLevel = sClass.size(0)
+        stimSM[cl,:,:] = torch.einsum('nd,nb->db', sClass, sClass) / nStimLevel
     return stimSM
 
 

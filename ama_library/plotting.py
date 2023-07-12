@@ -141,7 +141,8 @@ def plot_covariance_values(covariances, xVal=None, covarianceNames=None,
     of the level of the latent varaiable.
     #
     Arguments:
-    - covariances: List of arrays of covariance matrices to plot. Each element of the list has shape (n, c, c)
+    - covariances: List of arrays of covariance matrices to plot.
+        Each element of the list has shape (n, c, c)
         where n is the number of matrices and c is the dimension of each matrix.
         Can be the object respCov that is obtained from an ama object.
     - covarianceNames: List of labels for each element in covariances.
