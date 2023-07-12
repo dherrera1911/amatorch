@@ -78,7 +78,7 @@ class AMA(ABC, nn.Module):
         self.nFilt = self.f.shape[0]  # Number of trainable filters
         self.nFiltAll = self.nFilt  # Number of filters including fixed filters
         self.nDim = self.f.shape[1]  # Number of dimensions
-        self.nClasses = np.unique(ctgInd).size  # Number of classes
+        self.nClasses = torch.unique(ctgInd).size()[0]  # Number of classes
         self.filtNorm = filtNorm  # Method to normalize the filters
         self.respCovPooling = respCovPooling  # Method to generate response covariance
         # If no category values given, assign equispaced values in [-1,1]
