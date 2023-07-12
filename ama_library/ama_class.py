@@ -784,11 +784,13 @@ class Empirical(AMA):
             pixelCov=torch.tensor(0), ctgVal=None, filtNorm='broadband',
             respCovPooling='post-filter', samplesPerStim=5, nChannels=1,
             printWarnings=False, device='cpu'):
+        # Set device
+        self.device = device
         # If pixel Cov is only a scalar, turn into isotropic noise matrix
         if type(pixelCov) is float:
-            pixelCov = torch.tensor(pixelCov, device=device)
+            pixelCov = torch.tensor(pixelCov, device=self.device)
         if pixelCov.dim()==0:
-            self.pixelCov = torch.eye(sAll.shape[1], device=device) * pixelCov
+            self.pixelCov = torch.eye(sAll.shape[1], device=self.device) * pixelCov
         else:
             if pixelCov.shape[0] != sAll.shape[1]:
                 raise ValueError('''Error: Stimulus noise covariance needs to
@@ -797,7 +799,7 @@ class Empirical(AMA):
         self.nChannels = nChannels
         # Generate noisy stimuli samples to use for initialization
         n, d = sAll.shape
-        noise = MultivariateNormal(torch.zeros(d), self.pixelCov)
+        noise = MultivariateNormal(torch.zeros(d, device=self.device), self.pixelCov)
         # Repeat sAll for samplesPerStim times along a new dimension
         sAllRepeated = sAll.repeat(samplesPerStim, 1, 1)
         # Generate noise samples and add them to the repeated sAll tensor
