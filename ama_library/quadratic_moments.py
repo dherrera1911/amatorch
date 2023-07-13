@@ -22,7 +22,7 @@ from ama_library import utilities as au
 def compute_nc_parameter_batch(s, sigma):
     """ Compute the non-centrality parameter of each row
     in s, given isotropic noise with sigma standard deviation.
-    
+    ----------------
     Arguments:
     ----------------
       - s: Stimuli dataset. (nStim x nDim)
@@ -30,7 +30,7 @@ def compute_nc_parameter_batch(s, sigma):
           or a vector where each element of s will be divided by
           the corresponding element (it won't be an exact non-centrality
           parameter in this case)
-    
+    ----------------
     Outputs:
     ----------------
       - nc: Non-centrality parameter of each stimulus. ||mu||^2, where
@@ -50,13 +50,13 @@ def compute_stimuli_hyp1f1(a, b, nc):
     """ For each element in nc (which is the non-centrality parameter
     given by ||s/sigma||**2 for stimulus s), compute the
     confluent hypergeometric function hyp1f1(a, b, -nc[i]/2)
-    
+    ----------------
     Arguments:
     ----------------
       - a: First parameter of hyp1f1 (usually 1 or 1/2). (Scalar)
       - b: Second parameter of hyp1f1 (usually df/2+k, k being an integer). (Scalar)
       - nc: Non-centrality parameter. Has to be numpy array (Vector length df)
-   
+    ----------------
     Outputs:
     ----------------
       - hypFun: Value of hyp1f1 for each nc. (Vector length df)
@@ -74,12 +74,12 @@ def compute_isotropic_formula_weights(s, sigma):
     isotropic Gaussian noise, compute and the weights of the
     stimulus outer products and the identity matrix needed to get
     the second moment matrix of each stimulus.
-    
+    ----------------
     Arguments:
     ----------------
       - s: Stimulus dataset. (nStim x nDim)
       - sigma: Standard deviation of the noise
-    
+    ----------------
     Outputs:
     ----------------
       - nonCentrality: Non centrality parameter of each stimulus (nStim)
@@ -104,12 +104,12 @@ def inv_ncx(mu, sigma):
     """ Get the expected value of the inverse of the norm
     of a multivariate gaussian X with mean mu and isotropic noise
     variance sigma.
-    
+    ----------------
     Arguments:
     ----------------
       - mu: Multidimensional mean of the gaussian. (Vector length df)
       - sigma: Standard deviation of isotropic noise. (Scalar)
-    
+    ----------------
     Outputs:
     ----------------
       - expectedValue: Expected value of 1/||x|| with x~N(mu, sigma).
@@ -130,12 +130,12 @@ def inv_ncx_batch(mu, sigma):
     """ Get the expected value of the inverse of the norm
     of a multivariate gaussian X with mean mu and isotropic noise
     standard deviation sigma, for each different value of mu.
-    
+    ----------------
     Arguments:
     ----------------
       - mu: Multidimensional mean of the gaussian. (nStim x df)
       - sigma: Standard deviation of isotropic noise. (Scalar)
-    
+    ----------------
     Outputs:
     ----------------
       - expectedValue: Expected value of 1/||x|| with x~N(mu, sigma).
@@ -160,7 +160,7 @@ def inv_ncx2(df, nc):
     squared norm of a non-centered gaussian
     distribution, with degrees of freedom df, and non-centrality
     parameter nc (||\mu||^2).
-    
+    ----------------
     Arguments:
     ----------------
       - df: degrees of freedom
@@ -196,11 +196,24 @@ def isotropic_individual_stim_mean(s, sigma=0.1, invNorm=None):
     (i.e. each stimulus) given isotropic noise with standard
     deviation sigma and normalization by the norm. It can either take the
     expected values of the inverse norm as inputs, or
-    compute them here"""
+    compute them here
+    ----------------
+    Arguments:
+    ----------------
+      - s: Stimulus dataset. (nStim x nDim)
+      - sigma: Standard deviation of the noise
+      - invNorm: Expected value of the inverse norm of the
+          noisy stimulus. (nStim)
+    ----------------
+    Outputs:
+    ----------------
+      - sNormMeanExpected: Expected mean value of each normalized
+          noisy stimulus. (nStim x nDim)
+    """
     if invNorm is None:
         invNorm = inv_ncx_batch(s, sigma)
-    normStim = torch.einsum('nd,n->nd', s, invNorm)
-    return normStim
+    sNormMeanExpected = torch.einsum('nd,n->nd', s, invNorm)
+    return sNormMeanExpected
 
 
 # Compute the expected value of noisy normalized stimulus set
@@ -215,7 +228,7 @@ def isotropic_mean_batch(s, sigma, invNormMean=None, ctgInd=None):
     stimuli, where the weights are given by the expected value of the
     inverse norm of the noisy stimulus (E(1/||s+\gamma||)).
     The sum weights can be precomputed with the inv_ncx_batch function.
-    
+    ----------------
     Arguments:
     ----------------
       - s: matrix with stimuli. (nStim x nDim)
@@ -224,6 +237,11 @@ def isotropic_mean_batch(s, sigma, invNormMean=None, ctgInd=None):
       - invNormMean: Optional to save compute. Expected inverse norm
           for each stimulus. (nStim)
       - ctgInd: Vector with index categories for the stimuli in s
+    ----------------
+    Outputs:
+    ----------------
+      - sNormMeanExpected: Expected value of the normalized noisy stimuli
+          for each class in the dataset (nClasses x nDim)
     """
     nDim = s.shape[1]
     nStim = s.shape[0]
@@ -235,14 +253,14 @@ def isotropic_mean_batch(s, sigma, invNormMean=None, ctgInd=None):
         invNormMean = inv_ncx_batch(mu=s, sigma=sigma).to(s.device)
     # Compute the means of the second moments for each batch of stimuli
     nClasses = torch.unique(ctgInd).size()[0]
-    stimMean = torch.zeros(nClasses, nDim, device=s.device)
+    sNormMeanExpected = torch.zeros(nClasses, nDim, device=s.device)
     for cl in range(nClasses):
         mask = (ctgInd == cl)
         sLevel = s[mask,:]  # Stimuli of the same category
         invNormMeanLevel = invNormMean[mask]
-        stimMean[cl,:] = torch.mean(torch.einsum('nb,n->nb',
+        sNormMeanExpected[cl,:] = torch.mean(torch.einsum('nb,n->nb',
             sLevel, invNormMeanLevel), dim=0)
-    return stimMean
+    return sNormMeanExpected
 
 
 #############
@@ -256,7 +274,20 @@ def isotropic_individual_stim_secondM(s, sigma, noiseW=None, meanW=None):
     (i.e. each stimulus) given isotropic noise with standard
     deviation sigma and normalization by the norm. It can either take
     the weighting terms for the identity and the mean outer product as
-    inputs, or compute them here"""
+    inputs, or compute them here
+    ----------------
+    Arguments:
+    ----------------
+      - s: Stimulus dataset. (nStim x nDim)
+      - sigma: Standard deviation of the noise
+      - noiseW: Weighting term for the identity matrix. (nStim)
+      - meanW: Weighting term for the mean outer product. (nStim)
+    ----------------
+    Outputs:
+    ----------------
+      - sNormSecondMExpected: Expected second moment of each normalized
+          noisy stimulus. (nStim x nDim x nDim)
+    """
     if s.dim() == 1:
         s = s.unsqueeze(0)
     df = s.shape[1]
@@ -303,7 +334,7 @@ def isotropic_ctg_secondM(s, sigma, noiseW=None, meanW=None, ctgInd=None,
     A vector of normalizing factors (normFactor) given by the filter-specific
     normalization can be passed as inputs, to simulate narrowband
     normalization.
-    
+    ----------------
     Arguments:
     ----------------
       - s: matrix with stimuli. (nStim x nDim)
@@ -317,8 +348,9 @@ def isotropic_ctg_secondM(s, sigma, noiseW=None, meanW=None, ctgInd=None,
       - ctgInd: Vector with index categories for the stimuli in s
       - normFactor: normalization factor given by filter-stimulus phase
           independent similarity. Either a scalar, or a vector length=nStim.
-    
+    ----------------
     Output: 
+    ----------------
       - expectedSM: Array with expected second moment matrices. (nClasses x df x df)
     """
     df = s.shape[1]
@@ -371,7 +403,7 @@ def isotropic_ctg_resp_mean(s, sigma, f, normalization='broadband',
         ctgInd=None, sAmp=None, invNormMean=None):
     """Compute analytically the mean of filter responses to the noisy
         normalized stimuli of each category.
-
+    ----------------
     Arguments:
     ----------------
       - s: Stimuli dataset (nStim x nDim)
@@ -387,7 +419,7 @@ def isotropic_ctg_resp_mean(s, sigma, f, normalization='broadband',
       - invNormMean: Optional to save compute (broadband and narrowband).
           The expected values of the inverse of the norm for each stimulus s.
           Should be computed with the inv_ncx functions. (nStim)
-
+    ----------------
     Outputs:
     ----------------
       - respMean: Response mean vector for each category. (nClasses x nFilt)
@@ -451,7 +483,7 @@ def isotropic_ctg_resp_secondM(s, f, sigma, noiseW, meanW,
     """Compute the second moment matrix of filter responses to
     the noisy (isotropic noise) normalized stimuli of each category, using
     an analytic formula.
-    
+    ----------------
     Arguments:
     ----------------
       - s: Stimuli dataset (nStim x nDim)
@@ -468,7 +500,7 @@ def isotropic_ctg_resp_secondM(s, f, sigma, noiseW, meanW,
       - normFactors: Factor by which to multiply the respone of each filter
           to each stimulus to implement narrowband normalization. It is
           given by 1/similarity for each filter/stimulus. (nStim x nFilt)
-    
+    ----------------
     Outputs:
     ----------------
       - expectedSM: Tensor with the second moment matrix of the filter
@@ -538,14 +570,14 @@ def compute_amplitude_similarity(s, f, stimSpace='signal',
     """Compute the similarity between the amplitude spectrum of
     stimuli in s, and of filters in f (i.e. s*f/(||s||*||f||).
     Return a matrix with similarity scores.
-
+    ----------------
     Arguments:
     ----------------
       - s: Either the stimuli dataset, or their amplitude spectra. (nStim x nDim)
       - f: Either the filters, or their amplitude spectra. (nFilt x nDim)
       - stimSpace: String indicating if s is in signal space, or amplitude spectrum
       - filterSpace: String indicating if f is in signal space, or amplitude spectrum
-
+    ----------------
     Outputs:
     ----------------
       - similarity: Similarity score matrix. (nStim x nFilt)
@@ -577,7 +609,7 @@ def compute_amplitude_similarity(s, f, stimSpace='signal',
 def secondM_2_cov(secondM, mean, nStim=None):
     """Convert matrices of second moments to covariances, by
     subtracting the product of the mean with itself.
-
+    ----------------
     Arguments:
     ----------------
       - secondM: Second moment matrix. E.g. computed with
@@ -585,7 +617,7 @@ def secondM_2_cov(secondM, mean, nStim=None):
            or nFilt x nFilt)
       - mean: mean matrix. E.g. computed with 'isotropic_ctg_resp_mean'.
            (nClasses x nFilt, or nFilt)
-
+    ----------------
     Outputs:
     ----------------
       - covariance: Covariance matrices. (nClasses x nFilt x nFilt)

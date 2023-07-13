@@ -24,6 +24,7 @@ class AMA(ABC, nn.Module):
         """ AMA model object.
         -----------------
         Arguments:
+        -----------------
           - sAll: Input stimuli. (nStim x nDim)
           - ctgInd: Category index of each stimulus. (nStim)
           - nFilt: Number of filters to train
@@ -40,6 +41,7 @@ class AMA(ABC, nn.Module):
           - device: Device to use. Defaults to 'cpu'
         -----------------
         Attributes:
+        -----------------
           - f: Trainable filters. (nFilt x nDim)
           - fFixed: Fixed filters. (nFiltFixed x nDim)
           - ctgVal: Value of the latent variable corresponding to each category
@@ -111,14 +113,29 @@ class AMA(ABC, nn.Module):
         """ Return a tensor with all the filters (fixed and trainable).
         Fixed filters are first.
         #
+        -----------------
         Output:
+        -----------------
             - fAll: Tensor with all filters. (nFilt x nDim)
         """
         return torch.cat((self.fFixed, self.f))
 
 
     def make_noisy_normalized_stimuli(self, s, ctgInd=None, samplesPerStim=1):
-        """ Generate noisy stimuli samples and normalize them."""
+        """ Generate noisy stimuli samples and normalize them.
+        # 
+        -----------------
+        Arguments:
+        -----------------
+          - s: Input noiseless stimuli. (nStim x nDim)
+          - ctgInd: Category index of each stimulus. (nStim)
+          - samplesPerStim: Number of noisy samples to generate per stimulus.
+        -----------------
+        Output:
+        -----------------
+          - sAllNoisy: Noisy stimuli. (nStim x nDim)
+          - ctgIndNoisy: Category index of each noisy stimulus. (nStim)
+        """
         # Generate noisy stimuli samples
         n, d = s.shape
         # Repeat stimuli for samplesPerStim times along a new dimension
@@ -138,7 +155,7 @@ class AMA(ABC, nn.Module):
 
 
     def to(self, device):
-        """ Move model to device. """
+        """ Move model tensors to the indicated  device. """
         super().to(device)
         self.device = device
         self.fFixed = self.fFixed.to(device)
@@ -198,7 +215,9 @@ class AMA(ABC, nn.Module):
     def update_response_statistics(self, sAll, ctgInd, sAmp=None, sameAsInit=True):
         """ Update (in place) the conditional response means and covariances
         to match the current object filters
+        -----------------
         Arguments:
+        -----------------
             - sAll: Stimulus dataset to use for response updating. Ideally, it is
              the same dataset used to initialize the model, for which there are
              precomputed quantities. (nStim x nDim)
@@ -247,7 +266,9 @@ class AMA(ABC, nn.Module):
             sameAsInit=True):
         """ Overwrite the values to the model filters. Updates model
         parameters and statistics accordingly.
+        -----------------
         Arguments:
+        -----------------
             - fNew: Matrix with the new filters as rows. The new number of filters
                 doesn't need to match the old number. (nFilt x nDim)
             - Rest of inputs, sAll, ctgInd, sAmp, sameAsInit, are as explained
@@ -295,7 +316,9 @@ class AMA(ABC, nn.Module):
 
     def add_fixed_filters(self, fFixed, sAll, ctgInd, sAmp=None, sameAsInit=True):
         """ Add new filters to the model, that are not trainable parameters.
+        -----------------
         Arguments:
+        -----------------
             - fFixed: Te tensor with the new filters. (nFilt x nDim)
             - Rest of input parameters are as in update_response_statistics()
         """
@@ -308,7 +331,9 @@ class AMA(ABC, nn.Module):
             sameAsInit=True):
         """ Add new, random filters to the filters already contained in
         the model. Adapt model statistics and parameters accordingly.
+        -----------------
         Arguments:
+        -----------------
             - nFiltNew: number of new fiters to add
             - Rest of inputs, sAll, ctgInd, sAmp, sameAsInit, are as explained
                in update_response_statistics()
@@ -323,22 +348,22 @@ class AMA(ABC, nn.Module):
                 sameAsInit=sameAsInit)
 
 
-    def interpolate_class_statistics(self, nPoints=10, method='geodesic',
+    def interpolate_class_statistics(self, nPoints=11, method='geodesic',
                                      metric='BuressWasserstein'):
         """ Add new classes to the model, by interpolating between the
         existing classes.
         """
         # Interpolate the means 
-        self.respMean = ag.interpolate_means_euclidean(respMean=self.respMean.detach(),
-                                                       nPoints=nPoints)
+        self.respMean = torch.tensor(ag.interpolate_means(
+          respMean=self.respMean.detach(), nPoints=nPoints, method=method))
         # Interpolate the covariances
-        self.respCov = torch.tensor(
-            ag.interpolate_covariance_sequence(covariances=self.respCov.detach(),
-                                               nPoints=nPoints, metric=metric)
-            )
+        self.respCov = torch.tensor(ag.covariance_interpolation(
+              covariances=self.respCov.detach(), nPoints=nPoints, metric=metric,
+              method=method))
         # Interpolate category values
-        self.ctgVal = ag.interpolate_means_euclidean(respMean=self.ctgVal.unsqueeze(1).detach(),
-                                                     nPoints=nPoints).squeeze()
+        self.ctgVal = torch.tensor(ag.interpolate_means(
+            respMean=self.ctgVal.unsqueeze(1).detach(),
+            nPoints=nPoints, method='geodesic').squeeze())
 
 
     #########################
@@ -349,12 +374,16 @@ class AMA(ABC, nn.Module):
         """ Compute the responses of the filters to each stimulus in s. Note,
         stimuli are normalized to unit norm. If requested, noise is also
         added.
+        -----------------
         Arguments:
+        -----------------
             - s: stimulus matrix for which to compute posteriors. (nStim x nDim)
             - addStimNoise: Logical that indicates whether to add noise to
                 the input stimuli s. Added noise has the characteristics stored
                 in the class.
+        -----------------
         Output:
+        -----------------
             - resp: Matrix with the filter responses for each stimulus.
             (nStim x nFilt)
         """
@@ -382,14 +411,18 @@ class AMA(ABC, nn.Module):
         """ Compute the class posteriors for each stimulus in s. Note,
         stimuli are normalized to unit norm. If requested, noise is also
         added.
+        -----------------
         Arguments:
+        -----------------
             - s: stimulus matrix for which to compute posteriors. (nStim x nDim)
             - addStimNoise: Logical that indicates whether to add noise to
                 the input stimuli s. Added noise has the characteristics stored
                 in the class.
             - addRespNoise: Logical that indicates whether to add noise to the
                 filter responses.
+        -----------------
         Output:
+        -----------------
             - logLikelihoods: Matrix with the log-likelihood function across
             classes for each stimulus. (nStim x nClasses)
         """
@@ -407,14 +440,18 @@ class AMA(ABC, nn.Module):
         """ Compute the class posteriors for each stimulus in s. Note,
         stimuli are normalized to unit norm. If requested, noise is also
         added.
+        -----------------
         Arguments:
+        -----------------
             - s: stimulus matrix for which to compute posteriors. (nStim x nDim)
             - addStimNoise: Logical that indicates whether to add noise to
                 the input stimuli s. Added noise has the characteristics stored
                 in the class.
             - addRespNoise: Logical that indicates whether to add noise to the
                 filter responses.
+        -----------------
         Output:
+        -----------------
             - posteriors: Matrix with the posterior distribution across classes
             for each stimulus. (nStim x nClasses)
         """
@@ -431,14 +468,18 @@ class AMA(ABC, nn.Module):
     def get_estimates(self, s, method4est='MAP', addStimNoise=True,
             addRespNoise=True):
         """ Compute latent variable estimates for each stimulus in s.
+        -----------------
         Arguments:
+        -----------------
             - s: stimulus matrix for which to compute posteriors. (nStim x nDim)
             - addStimNoise: Logical that indicates whether to add noise to
                 the input stimuli s. Added noise has the characteristics stored
                 in the class.
             - addRespNoise: Logical that indicates whether to add noise to the
                 filter responses.
+        -----------------
         Output:
+        -----------------
             - estimates: Vector with the estimated latent variable for each
                 stimulus. (nStim)
         """
@@ -452,9 +493,13 @@ class AMA(ABC, nn.Module):
 
     def resp_2_log_likelihood(self, resp):
         """ Compute log-likelihood of each class given the filter responses.
+        -----------------
         Arguments:
+        -----------------
             - resp: Matrix of filter responses. (nStim x nDim)
+        -----------------
         Output:
+        -----------------
             - logLikelihoods: Matrix with the log-likelihood function across
             classes for each stimulus. (nStim x nClasses)
         """
@@ -477,10 +522,14 @@ class AMA(ABC, nn.Module):
 
     def log_likelihood_2_posterior(self, logLikelihoods):
         """ Convert log-likelihoods to posterior probabilities.
+        -----------------
         Arguments:
+        -----------------
             - logLikelihoods: Matrix with the log-likelihood function across
             classes for each stimulus. (nStim x nClasses)
+        -----------------
         Output:
+        -----------------
             - posteriors: Matrix with the posterior distribution across classes
             for each stimulus. (nStim x nClasses)
         """
@@ -490,7 +539,9 @@ class AMA(ABC, nn.Module):
 
     def posterior_2_estimate(self, posteriors, method4est='MAP', ctgVal=None):
         """ Convert posterior probabilities to estimates of the latent variable.
+        -----------------
         Arguments:
+        -----------------
             - posteriors: Matrix with the posterior distribution across classes
               for each stimulus. (nStim x nClasses)
             - method4est: Method to use for estimating the latent variable.
@@ -499,7 +550,9 @@ class AMA(ABC, nn.Module):
             - ctgVal: Vector with the values of the latent variable for each
                 category. If None, the values stored in the class are used.
                 Must match the number of categories in the posteriors.
+        -----------------
         Output:
+        -----------------
             - estimates: Vector with the estimated latent variable for each
                 stimulus. (nStim)
         """
@@ -530,12 +583,30 @@ class Isotropic(AMA):
     def __init__(self, sAll, ctgInd, nFilt=2, respNoiseVar=torch.tensor(0.02),
             pixelVar=torch.tensor(0), ctgVal=None, filtNorm='broadband',
             respCovPooling='post-filter', printWarnings=False, device='cpu'):
+        """
+        -----------------
+        Isotropic AMA class
+        -----------------
+        This variant of AMA assumes that the added input level noise is
+        isotropic. This allows to use analytic formulas to estimate the mean
+        and covariance of the noisy normalized stimuli dataset. The
+        method cannot normalize the input across different channels (i.e.
+        it normalizes the whole stimulus at once).
+        """
+
+
         # Compute and save as attributes the quadratic-moments weights
         # that are needed to compute statistics of stimuli under isotrpic noise
         # and normalization
         print('Computing weights for quadratic moments ...')
         start = time.time()
         self.device = device
+        # Convert scalar inputs to tensors, if they are not already
+        if not torch.is_tensor(respNoiseVar):
+            respNoiseVar = torch.tensor(respNoiseVar)
+        if not torch.is_tensor(pixelVar):
+            pixelVar = torch.tensor(pixelVar)
+        # Compute the pixel variance
         self.pixelSigma = torch.sqrt(pixelVar).to(device)
         self.set_isotropic_params(sAll=sAll)
         end = time.time()
@@ -558,7 +629,9 @@ class Isotropic(AMA):
         """ If stimulus noise is isotropic, set some parameters
         related to stimulus noise, and precompute quantities that will
         save compute time.
+        -----------------
         Arguments:
+        -----------------
             - sAll: Stimulus dataset used to compute statistics
             - pixelSigma: Standard deviation of input noise
         """
@@ -580,10 +653,14 @@ class Isotropic(AMA):
         """ Compute the mean of the noisy normalized stimuli across the
         dataset. Uses some of the noise model properties
         stored as attributes of the class.
+        -----------------
         Arguments:
+        -----------------
             - s: Input stimuli. (nStim x nDim)
             - ctgInd: Category index of each stimulus. (nStim)
+        -----------------
         Outputs:
+        -----------------
             - stimMean: Mean of the noisy normalized stimuli for each category.
                 (nClasses x nDim)
         """
@@ -606,10 +683,14 @@ class Isotropic(AMA):
         """ Compute the covariance across the stimulus dataset for the noisy
         normalized stimuli. Uses some of the noise model properties
         stored as attributes of the class.
+        -----------------
         Arguments:
+        -----------------
             - s: Input stimuli. (nStim x nDim)
             - ctgInd: Category index of each stimulus. (nStim)
+        -----------------
         Outputs:
+        -----------------
             - stimCov: Covariance matrices of the noisy normalized stimuli
                 for each category. (nClasses x nDim x nDim)
         """
@@ -640,8 +721,9 @@ class Isotropic(AMA):
     def compute_response_mean(self, s=None, ctgInd=None, sAmp=None, sameAsInit=True):
         """ Compute the mean of the filter responses to the noisy stimuli for each class.
         Note that this are the noiseless filters.
-        #
+        -----------------
         Arguments:
+        -----------------
             - s: stimulus matrix for which to compute the mean responses.
                 If normalization is broadband and sameAsInit=True, it is
                 not required. (nStim x nDim)
@@ -651,7 +733,9 @@ class Isotropic(AMA):
                 au.compute_amplitude_spectrum(s)' (nStim x nDim)
             - sameAsInit: Logical indicating whether it is the same stimulus set
                 as for initialization. Indicates whether to use precomputed parameters.
+        -----------------
         Outputs:
+        -----------------
             - respMean: Mean responses of each model filter to the noisy normalized
             stimuli of each class. (nClasses x nFilt)
         """
@@ -679,8 +763,9 @@ class Isotropic(AMA):
     def compute_response_cov(self, s=None, ctgInd=None, sAmp=None, sameAsInit=True):
         """ Compute the mean of the filter responses to the noisy stimuli for each class.
         Note that this are the noiseless filters.
-        #
+        -----------------
         Arguments:
+        -----------------
             - s: stimulus matrix for which to compute the mean responses.
                 If normalization is broadband and sameAsInit=True, it is
                 not required. (nStim x nDim)
@@ -690,7 +775,9 @@ class Isotropic(AMA):
                 au.compute_amplitude_spectrum(s)' (nStim x nDim)
             - sameAsInit: Logical indicating whether it is the same stimulus set
                 as for initialization. Indicates whether to use precomputed parameters.
+        -----------------
         Outputs:
+        -----------------
             - respCov: Covariance of filter responses to the noisy normalized
             stimuli of each class. (nClasses x nFilt x nFilt)
         """
@@ -784,11 +871,24 @@ class Empirical(AMA):
             pixelCov=torch.tensor(0), ctgVal=None, filtNorm='broadband',
             respCovPooling='post-filter', samplesPerStim=5, nChannels=1,
             printWarnings=False, device='cpu'):
+        """
+        -----------------
+        Empirical AMA class
+        -----------------
+        This variant of AMA uses empirical estimates of the noisy normalized
+        stimuli means and covariances. It can normalize the input across
+        different channels (i.e. left and right eye can be normalized
+        separately).
+        """
         # Set device
         self.device = device
-        # If pixel Cov is only a scalar, turn into isotropic noise matrix
-        if type(pixelCov) is float:
-            pixelCov = torch.tensor(pixelCov, device=self.device)
+        # Turn noise parameters into tensors in device, and if needed convert
+        # scalar into matrix
+        if not torch.is_tensor(respNoiseVar):
+            respNoiseVar = torch.tensor(respNoiseVar)
+        if not torch.is_tensor(pixelCov):
+            pixelCov = torch.tensor(pixelCov)
+        pixelCov = pixelCov.to(self.device)
         if pixelCov.dim()==0:
             self.pixelCov = torch.eye(sAll.shape[1], device=self.device) * pixelCov
         else:
@@ -820,12 +920,16 @@ class Empirical(AMA):
     def compute_norm_stim_mean(self, s, ctgInd, isNormalized=True):
         """ Compute the mean of the noisy normalized stimuli across the
         dataset.
+        -----------------
         Arguments:
+        -----------------
             - s: Input NOISY stimuli. (nStim x nDim)
             - ctgInd: Category index of each stimulus. (nStim)
             - isNormalized: Boolean indicating if the input stimuli s
                 have already been normalized.
+        -----------------
         Outputs:
+        -----------------
             - stimMean: Mean of the noisy normalized stimuli for each category.
                 (nClasses x nDim)
         """
@@ -844,12 +948,16 @@ class Empirical(AMA):
         """ Compute the covariance across the stimulus dataset for the noisy
         normalized stimuli. Uses some of the noise model properties
         stored as attributes of the class.
+        -----------------
         Arguments:
+        -----------------
             - s: Input NOISY stimuli. (nStim x nDim)
             - ctgInd: Category index of each stimulus. (nStim)
             - isNormalized: Boolean indicating if the input stimuli s
                 have already been normalized.
+        -----------------
         Outputs:
+        -----------------
             - stimCov: Mean of the noisy normalized stimuli for each category.
                 (nClasses x nDim)
         """
@@ -870,8 +978,9 @@ class Empirical(AMA):
     def compute_response_mean(self, s=None, ctgInd=None, sAmp=None, isNormalized=True):
         """ Compute the mean of the filter responses to the noisy stimuli
         for each class. Note that this are the noiseless filters.
-        #
+        -----------------
         Arguments:
+        -----------------
             - s: NOISY stimulus matrix for which to compute the mean responses.
                 If normalization is broadband it is not required. (nStim x nDim)
             - ctgInd: Vector with index categories for the stimuli in i. (length nStim)
@@ -879,7 +988,9 @@ class Empirical(AMA):
                 Amplitude spectrum of NOISY NORMALIZED stimuli. (nStim x nDim)
             - isNormalized: Boolean indicating if the input stimuli s
                 have already been normalized.
+        -----------------
         Outputs:
+        -----------------
             - respMean: Mean responses of each model filter to the noisy normalized
                 stimuli of each class. (nClasses x nFilt)
         """
@@ -902,8 +1013,9 @@ class Empirical(AMA):
     def compute_response_cov(self, s=None, ctgInd=None, sAmp=None, isNormalized=True):
         """ Compute the mean of the filter responses to the noisy stimuli for each class.
         Note that this are the noiseless filters.
-        #
+        -----------------
         Arguments:
+        -----------------
             - s: NOISY stimulus matrix for which to compute the mean responses.
                 If normalization is broadband and sameAsInit=True, it is
                 not required. (nStim x nDim)
@@ -913,7 +1025,9 @@ class Empirical(AMA):
                 'au.compute_amplitude_spectrum(s)' (nStim x nDim)
             - isNormalized: Boolean indicating if the input stimuli s
                 have already been normalized.
+        -----------------
         Outputs:
+        -----------------
             - respCov: Covariance of filter responses to the noisy normalized
                 stimuli of each class. (nClasses x nFilt x nFilt)
         """
