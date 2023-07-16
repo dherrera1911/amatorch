@@ -629,7 +629,7 @@ def interpolate_category_values(ctgVal, nPoints):
 #
 
 # Function that turns posteriors into estimate averages, SDs and CIs
-def get_estimate_statistics(estimates, ctgInd, quantiles=[0.025, 0.975]):
+def get_estimate_statistics(estimates, ctgInd, quantiles=[0.16, 0.84]):
     """ Compute the mean, standard deviation and confidence intervals
     of the estimates for each level of the latent variable.
     ----------------
@@ -647,16 +647,21 @@ def get_estimate_statistics(estimates, ctgInd, quantiles=[0.025, 0.975]):
     """
     # Compute means and stds for each true level of the latent variable
     estimatesMeans = torch.zeros(ctgInd.max()+1)
+    estimatesMedians = torch.zeros(ctgInd.max()+1)
     estimatesSD = torch.zeros(ctgInd.max()+1)
     lowCI = torch.zeros(ctgInd.max()+1)
     highCI = torch.zeros(ctgInd.max()+1)
     quantiles = torch.tensor(quantiles)
     for cl in ctgInd.unique():
-        levelInd = [i for i, j in enumerate(ctgInd) if j == cl]
-        estimatesMeans[cl] = estimates[levelInd].mean()
-        estimatesSD[cl] = estimates[levelInd].std()
-        (lowCI[cl], highCI[cl]) = torch.quantile(estimates[levelInd], quantiles)
-    statsDict = {'estimateMean': estimatesMeans, 'estimateSD': estimatesSD,
+        mask = (ctgInd == cl)
+        estLevel = estimates[mask]  # Stimuli of the same category
+        estimatesMeans[cl] = estLevel.mean()
+        estimatesMedians[cl] = torch.median(estLevel)
+        estimatesSD[cl] = estLevel.std()
+        (lowCI[cl], highCI[cl]) = torch.quantile(estLevel, quantiles)
+    statsDict = {'estimateMean': estimatesMeans,
+                 'estimateMedian': estimatesMedians,
+                 'estimateSD': estimatesSD,
                  'lowCI': lowCI, 'highCI': highCI}
     return statsDict
 

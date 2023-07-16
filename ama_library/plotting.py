@@ -22,8 +22,9 @@ def response_ellipses_subplot(covariance, resp=None, ctgInd=None, ctgVal=None,
         plotFilt=torch.tensor([0,1]), subsampleFactor=1, fig=None, ax=None):
     """Do a 2D scatter plot of a set of responses, and draw ellipses to
     show the 2 SD of the Gaussian distribution.
-    #
+    -----------------
     Arguments:
+    -----------------
         - covariance: Tensor with covariances for each class. (nClasses x nFilt x nFilt)
         - resp: Tensor with filter responses. (nStim x nFilt)
         - ctgInd: Class index of each stimulus. (nStim)
@@ -93,6 +94,22 @@ def response_ellipses_subplot(covariance, resp=None, ctgInd=None, ctgVal=None,
 
 def all_response_ellipses(model, s, ctgInd, ctgStep, colorLabel,
         addStimNoise=True, addRespNoise=True):
+    """ Plot the responses and the 95% probability distribution ellipse
+    for all pairs of filters in the model.
+    -----------------
+    Arguments:
+    -----------------
+      - model: AMA model object. get_responses(), respCov, ctgVal.
+      - s: Input stimuli. (nStim x nDim)
+      - ctgInd: Category index of each stimulus. (nStim)
+      - ctgStep: Integer specifying the step size for the creation of a
+        range of category values.
+      - colorLabel: A string to use as the label for the color bar in the plots.
+      - addStimNoise: Boolean, if true, noise will be added to the stimuli
+          to compute the responses
+      - addRespNoise: Boolean, if true, noise will be added to the
+          model responses.
+    """
     fig, ax = plt.subplots()
     nPairs = int(model.nFiltAll/2)
     if nPairs > 2:
@@ -139,14 +156,15 @@ def plot_covariance_values(covariances, xVal=None, covarianceNames=None,
     """
     Plot how each element i,j of the covariance matrix changes as a function
     of the level of the latent varaiable.
-    #
+    -----------------
     Arguments:
-    - covariances: List of arrays of covariance matrices to plot.
-        Each element of the list has shape (n, c, c)
-        where n is the number of matrices and c is the dimension of each matrix.
-        Can be the object respCov that is obtained from an ama object.
-    - covarianceNames: List of labels for each element in covariances.
-    - xVal: List of x axis values for each element in covariances.
+    -----------------
+      - covariances: List of arrays of covariance matrices to plot.
+          Each element of the list has shape (n, c, c)
+          where n is the number of matrices and c is the dimension of each matrix.
+          Can be the object respCov that is obtained from an ama object.
+      - covarianceNames: List of labels for each element in covariances.
+      - xVal: List of x axis values for each element in covariances.
     """
     # Checking if covarianceNames is not given then assign default names
     if covarianceNames is None:
@@ -176,10 +194,13 @@ def plot_covariance_values(covariances, xVal=None, covarianceNames=None,
             for j in range(i+1):
                 # Extract the (i,j)-th element from each covariance matrix
                 elementValues = covariance[:, i, j]
-                x = x + np.random.randn(len(x)) * 0.00005 # add a bit of noise to prevent overlapping
+                # add a bit of noise to prevent overlapping
+                x = x + np.random.randn(len(x)) * 0.00005
                 # Plot how this element changes as a function of k
-                scatter = axs[i, j].scatter(x, elementValues, color=colors[covIndex],
-                        label=covarianceNames[covIndex], s=sizeList[covIndex], alpha=1)
+                scatter = axs[i, j].scatter(x, elementValues,
+                                            color=colors[covIndex],
+                                            label=covarianceNames[covIndex],
+                                            s=sizeList[covIndex], alpha=1)
                 # Add scatter plot to legend handles on first pass
                 if i == 0 and j == 0:
                     legend_handles.append(scatter)
@@ -217,11 +238,12 @@ def view_1D_bino_image(inputVec, x=[], title=''):
     Plot a vector that contains a 1D binocular image. The plot
     overlaps the first half of the vector (left eye) and second half
     (right eye).
-    #
+    -----------------
     Arguments:
-    - inputVec: Vector to plot. Usually, filter or input image.
-    - x: x axis ticks. Optional
-    - title: Plot title. Optional
+    -----------------
+      - inputVec: Vector to plot. Usually, filter or input image.
+      - x: x axis ticks. Optional
+      - title: Plot title. Optional
     """
     plt.title(title)
     nPixels = int(max(inputVec.shape)/2)
@@ -236,6 +258,10 @@ def view_all_filters_1D_bino_image(amaPy, x=[]):
     """
     Plot all the filters contained in an ama model, trained to
     process 1D binocular images.
+    -----------------
+    Arguments:
+    -----------------
+      - amaPy: AMA object trained on disparity estimation
     """
     fAll = amaPy.fixed_and_trainable_filters()
     fAll = fAll.detach()
@@ -256,15 +282,17 @@ def unvectorize_1D_binocular_video(inputVec, nFrames=15):
     each column is a time-changing pixel, and the left and right
     half of the matrix contain the left eye and right eye videos
     respectively.
-    #
+    -----------------
     Arguments:
-    - inputVec: Vector that contains a 1D binocular video. It
-        can be  matrix, where each row is a 1D binocular video.
-    - frames: Number of time frames in the video
-    #
+    -----------------
+      - inputVec: Vector that contains a 1D binocular video. It
+          can be  matrix, where each row is a 1D binocular video.
+      - frames: Number of time frames in the video
+    -----------------
     Outputs:
-    - matVideo: 2D format of the 1D video, with rows as frames and
-        columns as pixels. (nStim x nFrames x nPixels*2)
+    -----------------
+      - matVideo: 2D format of the 1D video, with rows as frames and
+          columns as pixels. (nStim x nFrames x nPixels*2)
     """
     if inputVec.dim() == 1:
         inputVec = inputVec.unsqueeze(0)
@@ -334,6 +362,20 @@ def plot_loss_list(lossList):
 def sd_to_ci(means, sd, multiplier=1.96):
     """
     Convert standard deviation to confidence interval.
+    -----------------
+    Arguments:
+    -----------------
+      - means: Tensor containing the mean (or median) value of the
+          distribution for each x
+      - sd: Tensor containing the standard deviation of the distribution
+          for each x
+      - multiplier: Number of standard deviations to use for the
+          confidence interval. Default is 1.96, which corresponds to
+          95% confidence interval.
+    ----------------
+    Outputs:
+    ----------------
+      - ci: Tensor containing the confidence interval for each x.
     """
     ciHigh = means + multiplier * sd
     ciLow = means - multiplier * sd
@@ -341,8 +383,24 @@ def sd_to_ci(means, sd, multiplier=1.96):
     return ci
 
 
-def plot_estimate_statistics_sd(estMeans, errorInterval, ctgVal=None,
-                                showPlot=True, unitsStr=''):
+def plot_estimate_statistics(estMeans, errorInterval, ctgVal=None,
+                              showPlot=True, unitsStr=''):
+    """ Plot the estimated mean and confidence interval of the
+    model estimates at each value of the latent variable.
+    -----------------
+    Arguments:
+    -----------------
+      - estMeans: Tensor containing the mean (or median) value
+          of the model estimates for each x
+      - errorInterval: Tensor containing the standard deviation of the
+          model estimates for each x
+      - ctgVal: Tensor containing the value of the latent variable
+          for each x. If None, then it is assumed that the latent
+          variable is a linearly spaced vector between -1 and 1.
+      - showPlot: Boolean indicating whether to show the plot or not.
+          Default is True.
+      - unitsStr: String indicating the units of the latent variable.
+    """
     if ctgVal is None:
         ctgVal = torch.linspace(-1, 1, len(estMeans))
     if not torch.is_tensor(ctgVal):
@@ -368,7 +426,9 @@ def plot_posteriors(posteriors, ctgInd=None, ctg2plot=None, ctgVal=None,
                     traces2plot=None, quantiles=[0.16, 0.84], showPlot=True):
     """ Plot the individual posteriors obtained from the model, as well as
     the median posterior.
+    -----------------
     Arguments:
+    -----------------
       - posteriors: Tensor with the posteriors, of size (nStim x nClasses)
       - ctgInd: Category index of each stimulus. (nStim)
       - ctg2plot: Categories to plot. If None, plot all categories.
