@@ -252,11 +252,14 @@ class AMA(ABC, nn.Module):
             loc=torch.zeros(self.nFiltAll, device=self.device),
             covariance_matrix=self.respNoiseCov)
         # If statistics were interpolated, return ctgVal to original length
-        if not len(self.ctgVal) == self.respCov.shape[0]:
-            nClasses = self.respCov.shape[0]
-            subsampleFactor = int(len(self.ctgVal) / nClasses)
-            subsampleInds = au.subsample_categories(nCtg=len(self.ctgVal),
-                                                  subsampleFactor=subsampleFactor)
+        if not self.ctgVal.shape[0] == self.nClasses:
+            subsampleFactor = int(len(self.ctgVal) / self.nClasses + 1)
+            if len(self.ctgVal) % 2 == 1:
+                subsampleInds = au.subsample_categories_centered(nCtg=len(self.ctgVal),
+                                                      subsampleFactor=subsampleFactor)
+            else:
+                # CHECK THAT THIS WORKS
+                subsampleInds = np.arange(0, len(self.ctgVal), subsampleFactor)
             self.ctgVal = self.ctgVal[subsampleInds]
             self.nClasses = len(self.respCov)
 
@@ -349,21 +352,57 @@ class AMA(ABC, nn.Module):
 
 
     def interpolate_class_statistics(self, nPoints=11, method='geodesic',
-                                     metric='BuressWasserstein'):
-        """ Add new classes to the model, by interpolating between the
-        existing classes.
+                                     metric='BuressWasserstein',
+                                     variableType='linear',
+                                     circularUnits='deg'):
         """
+        Add new classes to the model, by interpolating between the existing classes.
+        The size of self.respCov, self.respMean and self.ctgVal are changed to
+        incorporate more (interpolated) classes. Doesn't update attribute
+        nClasses (which stays indicating the number of original classes).
+        -----------------
+        Arguments:
+        -----------------
+            - nPoints: number of points to interpolate between available points
+            - method: method used for interpolation ('geodesic' or 'spline')
+            - metric: metric used for interpolation (e.g., 'BuressWasserstein')
+            - variableType: type of variable, can be 'linear' or 'circular'
+            - circularUnits: units of circular variable, can be 'deg' or 'rad'
+        """
+        # Handle circular variables
+        if variableType == 'circular':
+            # Triplicate the means and covariances for 3 full turns around the circle
+            respMean = torch.cat([self.respMean.detach()] * 3, dim=0)
+            respCov = torch.cat([self.respCov.detach()] * 3, dim=0)
+            ctgVal = torch.cat([self.ctgVal.detach()] * 3, dim=0)
+            if circularUnits=='deg':
+                circularConstant = 360
+            elif circularUnits=='rad':
+                circularConstant = 2*np.pi
+            # Add circle to last segment
+            ctgVal[(self.nClasses*2):] = ctgVal[(self.nClasses*2):] + \
+                circularConstant 
+        elif variableType == 'linear':
+            respMean = self.respMean.detach()
+            respCov = self.respCov.detach()
+            ctgVal = self.ctgVal.detach()
         # Interpolate the means 
         self.respMean = torch.tensor(ag.interpolate_means(
-          respMean=self.respMean.detach(), nPoints=nPoints, method=method))
+            respMean=respMean, nPoints=nPoints, method=method))
         # Interpolate the covariances
         self.respCov = torch.tensor(ag.covariance_interpolation(
-              covariances=self.respCov.detach(), nPoints=nPoints, metric=metric,
-              method=method))
+            covariances=respCov, nPoints=nPoints, metric=metric, method=method))
         # Interpolate category values
         self.ctgVal = torch.tensor(ag.interpolate_means(
-            respMean=self.ctgVal.unsqueeze(1).detach(),
+            respMean=ctgVal.unsqueeze(1),
             nPoints=nPoints, method='geodesic').squeeze())
+        # If variable is circular, crop back to the middle segment
+        if variableType == 'circular':
+            iInd = self.nClasses*(nPoints+1)
+            fInd = iInd + self.nClasses * (nPoints+1)
+            self.respMean = self.respMean[iInd:fInd,:]
+            self.respCov = self.respCov[iInd:fInd,:,:]
+            self.ctgVal = self.ctgVal[iInd:fInd]
 
 
     #########################

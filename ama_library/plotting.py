@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
+import seaborn as sns
 from matplotlib import patches, colors, cm
 from ama_library import quadratic_moments as qm
 from ama_library import utilities as au
@@ -19,7 +20,8 @@ import time
 
 
 def response_ellipses_subplot(covariance, resp=None, ctgInd=None, ctgVal=None,
-        plotFilt=torch.tensor([0,1]), subsampleFactor=1, fig=None, ax=None):
+        plotFilt=torch.tensor([0,1]), subsampleFactor=1, fig=None, ax=None,
+        lims=1, colorLabel='Category value'):
     """Do a 2D scatter plot of a set of responses, and draw ellipses to
     show the 2 SD of the Gaussian distribution.
     -----------------
@@ -32,8 +34,10 @@ def response_ellipses_subplot(covariance, resp=None, ctgInd=None, ctgVal=None,
             the color code
         - plotFilt: Tensor with the indices of the two filters to plot (i.e. the columns
                 of resp, and the sub-covariance matrix of covariance)
-        - subsampleFactor: Factor by which categories are subsampled
+        - subsampleFactor: Factor by which categories are subsampled. Uses subsample
+          categories from utilities
         - ax: The axis handle on which to draw the ellipse
+        - lims: The limits of the plot. Scalar
     """
     nCtg = covariance.shape[0]
     # If ctgVal not give, make equispaced between -1 and 1
@@ -43,7 +47,11 @@ def response_ellipses_subplot(covariance, resp=None, ctgInd=None, ctgVal=None,
     if ctgInd is None:
         ctgInd = torch.arange(covariance.shape[0])
     # Select relevant classes, and subsample vectors
-    ctg2plot = au.subsample_categories(nCtg=nCtg, subsampleFactor=subsampleFactor)
+    if nCtg % 2 == 1:
+        ctg2plot = au.subsample_categories_centered(nCtg=nCtg,
+                                                    subsampleFactor=subsampleFactor)
+    else:
+        ctg2plot = np.arange(0, nCtg, subsampleFactor)
     if not resp is None:
         resp = resp[np.isin(ctgInd, ctg2plot),:]
     # Select relevant covariances
@@ -60,12 +68,15 @@ def response_ellipses_subplot(covariance, resp=None, ctgInd=None, ctgVal=None,
         showPlot = False
     # Normalize color plot for shared colors
     norm = colors.Normalize(vmin=ctgVal.min(), vmax=ctgVal.max())
-    cmap = cm.get_cmap('viridis')
+    cmap = sns.diverging_palette(220, 20, s=80, l=70, sep=1, center="dark", as_cmap=True)
+    #cmap = cm.get_cmap('twilight_shifted')
+    #cmap = sns.color_palette("icefire", as_cmap=True)
+    #cmap = sns.color_palette("Spectral", as_cmap=True)
     if not resp is None:
         # Get the value corresponding to each data point
         respVal = ctgVal[ctgInd[np.isin(ctgInd, ctg2plot)]]
         sc = ax.scatter(resp[:, plotFilt[0]], resp[:, plotFilt[1]],
-                c=respVal, cmap=cmap, s=5, norm=norm, alpha=0.5)
+                c=respVal, cmap=cmap, s=40, norm=norm, alpha=0.5)
     # create ellipses for each covariance matrix
     for i in range(covPlt.shape[0]):
         cov = covPlt[i, :, :]
@@ -78,17 +89,38 @@ def response_ellipses_subplot(covariance, resp=None, ctgInd=None, ctgVal=None,
                 angle=torch.rad2deg(torch.atan2(eigVec[1, 0], eigVec[0, 0])),
                 color=cmap(norm(covVal[i])))
         ell.set_facecolor('none')
-        ell.set_linewidth(2)
+        ell.set_linewidth(3)
         ax.add_artist(ell)
     # Label the axes indicating plotted filters
-    plt.xlabel(f'Filter {plotFilt[0]+1}')
-    plt.ylabel(f'Filter {plotFilt[1]+1}')
-    ax.set_xlim(-1,1)
-    ax.set_ylim(-1,1)
-    #cax = fig.add_axes([0.90, 0.125, 0.02, 0.755])
-    #plt.colorbar(cm.ScalarMappable(norm=norm, cmap=cmap), cax=cax)
+    # Make the numbers be sub indices
+    #plt.xlabel(f'$f_{{{plotFilt[0]+1}}}$ response')
+    #plt.ylabel(f'$f_{{{plotFilt[1]+1}}}$ response')
+    plt.xlabel(f'f{plotFilt[0]+1} response')
+    plt.ylabel(f'f{plotFilt[1]+1} response')
+    # Set axis labels font size
+    # Set axis limits
+    ax.set_xlim(-lims,lims)
+    ax.set_ylim(-lims,lims)
+    # Set axis ticks
+    ticks = [-1, 0, 1]
+    ax.set_xticks(ticks)
+    ax.set_yticks(ticks)
+    # Add color bar
+    # To the side
+    #cax = fig.add_axes([0.99, 0.13, 0.03, 0.65])
+    #cbar = fig.colorbar(cm.ScalarMappable(norm=norm, cmap=cmap), cax=cax)
+    #cbar.ax.set_ylabel(colorLabel, rotation=0, ha="right")
+    #cbar.ax.yaxis.set_label_coords(7, 1.1)
+    cax = fig.add_axes([0.29, 0.90, 0.60, 0.025])
+    cbar = fig.colorbar(cm.ScalarMappable(norm=norm, cmap=cmap), cax=cax,
+                        orientation="horizontal")
+    # Set color bar label above color bar
+    # Set color bar label above color bar
+    cbar.ax.set_title(colorLabel, loc='center', fontsize=26)
+    # Modify tick size
+    cbar.ax.tick_params(labelsize=24)
     if showPlot:
-        fig.tight_layout(rect=[0, 0, 1, 0.95])
+        fig.tight_layout(rect=[0, 0, 0.95, 0.92])
         plt.show()
 
 
@@ -152,7 +184,7 @@ def all_response_ellipses(model, s, ctgInd, ctgStep, colorLabel,
 
 
 def plot_covariance_values(covariances, xVal=None, covarianceNames=None,
-        sizeList=None, maxInd=None):
+        sizeList=None, maxInd=None, showPlot=True):
     """
     Plot how each element i,j of the covariance matrix changes as a function
     of the level of the latent varaiable.
@@ -201,6 +233,8 @@ def plot_covariance_values(covariances, xVal=None, covarianceNames=None,
                                             color=colors[covIndex],
                                             label=covarianceNames[covIndex],
                                             s=sizeList[covIndex], alpha=1)
+                # Draw horizontal line through 0
+                axs[i, j].axhline(y=0, color='k', linestyle='--', linewidth=0.5)
                 # Add scatter plot to legend handles on first pass
                 if i == 0 and j == 0:
                     legend_handles.append(scatter)
@@ -215,7 +249,8 @@ def plot_covariance_values(covariances, xVal=None, covarianceNames=None,
     axs[0, -1].legend(legend_handles, covarianceNames, loc="center")
     axs[0, -1].axis('off')  # turn off axis lines and labels
     plt.tight_layout()
-    plt.show()
+    if showPlot:
+        plt.show()
 
 
 ##################################
@@ -251,20 +286,19 @@ def view_1D_bino_image(inputVec, x=[], title=''):
         x = np.arange(nPixels)
     plt.plot(x, inputVec[:nPixels], label='L', color='red')
     plt.plot(x, inputVec[nPixels:], label='R', color='blue')
-    plt.ylim(-0.3, 0.3)
+    plt.ylim(-0.35, 0.35)
 
 
-def view_all_filters_1D_bino_image(amaPy, x=[]):
+def view_all_filters_1D_bino_image(fAll, x=[]):
     """
     Plot all the filters contained in an ama model, trained to
     process 1D binocular images.
     -----------------
     Arguments:
     -----------------
-      - amaPy: AMA object trained on disparity estimation
+      - fAll: Matrix that contains all the filters. Each row
+          contains a filter.
     """
-    fAll = amaPy.fixed_and_trainable_filters()
-    fAll = fAll.detach()
     nFiltAll = fAll.shape[0]
     nPairs = int(nFiltAll/2)
     for n in range(nFiltAll):
@@ -306,6 +340,37 @@ def unvectorize_1D_binocular_video(inputVec, nFrames=15):
     outputMat = torch.cat((leftEye, rightEye), dim=2)
     return outputMat
 
+
+def vectorize_2D_binocular_video(matVideo, nFrames=15):
+    """
+    Inverts the transformation of the unvectorize_1D_binocular_video function.
+    Takes the 2D format of the binocular video and converts it back to its 1D form.
+    -----------------
+    Arguments:
+    -----------------
+      - matVideo: 2D format of the binocular video (nStim x nFrames x nPixels*2).
+      - nFrames: Number of time frames in the video (default: 15).
+    -----------------
+    Outputs:
+    -----------------
+      - outputVec: 1D binocular video. It can also be a matrix, where each
+          row is a 1D binocular video.
+    """
+    nStim = matVideo.shape[0]
+    nPixels2 = matVideo.shape[2]
+    nPixels = nPixels2 // 2  # nPixels for one eye
+    # Split the left and right eyes
+    leftEye = matVideo[:, :, :nPixels]
+    rightEye = matVideo[:, :, nPixels:]
+    # Reshape each eye tensor to 1D form
+    leftEye = leftEye.reshape(nStim, nPixels * nFrames)
+    rightEye = rightEye.reshape(nStim, nPixels * nFrames)
+    # Concatenate the left and right eyes along the second dimension (columns)
+    outputVec = torch.cat((leftEye, rightEye), dim=1)
+    # If there's only one stimulus, we can squeeze to remove the first dimension
+    if nStim == 1:
+        outputVec = outputVec.squeeze(0)
+    return outputVec
 
 # Plot filters
 def view_1D_bino_video(fIn, nFrames=15):
@@ -384,7 +449,7 @@ def sd_to_ci(means, sd, multiplier=1.96):
 
 
 def plot_estimate_statistics(estMeans, errorInterval, ctgVal=None,
-                              showPlot=True, unitsStr=''):
+                              showPlot=True, xLab='Value ', unitsStr='', color='b'):
     """ Plot the estimated mean and confidence interval of the
     model estimates at each value of the latent variable.
     -----------------
@@ -411,19 +476,19 @@ def plot_estimate_statistics(estMeans, errorInterval, ctgVal=None,
     # convert to numpy for matplotlib compatibility
     estMeans = estMeans.detach().numpy()
     ctgVal = ctgVal.detach().numpy()
-    plt.figure(figsize=(10, 6))
-    plt.plot(ctgVal, estMeans, color='blue')
+    plt.plot(ctgVal, estMeans, color=color, linewidth=4)
     plt.fill_between(ctgVal, errorInterval[0,:], errorInterval[1,:],
-                     color='blue', alpha=0.2)
-    plt.axline((0,0), slope=1, color='black')
-    plt.xlabel('Value '+unitsStr)
+                     color=color, alpha=0.2)
+    plt.axline((0,0), slope=1, color='black', linestyle='--', linewidth=2)
+    plt.xlabel(xLab+unitsStr)
     plt.ylabel('Estimates '+unitsStr)
     if showPlot:
         plt.show()
 
 
 def plot_posteriors(posteriors, ctgInd=None, ctg2plot=None, ctgVal=None,
-                    traces2plot=None, quantiles=[0.16, 0.84], showPlot=True):
+                    traces2plot=None, quantiles=[0.16, 0.84], showPlot=True,
+                    maxColumns=5):
     """ Plot the individual posteriors obtained from the model, as well as
     the median posterior.
     -----------------
@@ -444,7 +509,6 @@ def plot_posteriors(posteriors, ctgInd=None, ctg2plot=None, ctgVal=None,
     if ctgVal is None:
         ctgVal = torch.linspace(-1, 1, posteriors.shape[1])
     # Get number of columns and rows to subplot
-    maxColumns = 5
     nColumns = min(len(ctg2plot), maxColumns)
     nRows = int(np.ceil(len(ctg2plot)/nColumns))
     # Remove categories not to plot
@@ -467,9 +531,51 @@ def plot_posteriors(posteriors, ctgInd=None, ctg2plot=None, ctgVal=None,
         plt.fill_between(ctgVal, ciPosterior[0,:], ciPosterior[1,:],
                           color='black', alpha=0.3)
         plt.plot(ctgVal, tracePosteriors.transpose(), color='red',
-                 linewidth=0.3, alpha=0.3)
+                 linewidth=0.2, alpha=0.3)
         plt.plot(ctgVal, medianPosterior, color='black', linewidth=2)
+#        plt.ylim([0, 1])
     if showPlot:
         plt.show()
 
+
+def plot_posterior_neuron(posteriors, ctgInd=None, ctg2plot=None, ctgVal=None,
+                    quantiles=[0.16, 0.84], showPlot=True,
+                    maxColumns=5):
+    """ Plot the posterior of one of the classes as a function of
+    the class of the presented stimulus.
+    -----------------
+    Arguments:
+    -----------------
+      - posteriors: Tensor with the posteriors, of size (nStim x nClasses)
+      - ctgInd: Category index of each stimulus. (nStim)
+      - ctg2plot: Categories to plot. If None, plot all categories.
+      - ctgVal: Category values. If None, use interval [-1, 1].
+      - showPlot: If True, show the plot. If False, return the plot
+    """
+    if ctgInd is None:
+        ctgInd = torch.zeros(posteriors.shape[0])
+    if ctg2plot is None:
+        ctg2plot = torch.unique(ctgInd)
+    if ctgVal is None:
+        ctgVal = torch.linspace(-1, 1, posteriors.shape[1])
+    # Get number of columns and rows to subplot
+    nColumns = min(len(ctg2plot), maxColumns)
+    nRows = int(np.ceil(len(ctg2plot)/nColumns))
+    # Compute the mean posterior at the indicated class when the
+    # other classes are shown
+    ctgIndUninterp = au.reindex_categories(torch.clone(ctgInd))
+    ctgIndUnique = torch.unique(ctgInd)
+    for i in range(len(ctg2plot)):
+        ctgPosteriors = posteriors[:, ctg2plot[i]]
+        posteriorStats = au.get_estimate_statistics(ctgPosteriors,
+                                                   ctgIndUninterp,
+                                                   quantiles=quantiles)
+        plt.subplot(nRows, nColumns, i+1)
+        # Plot the posteriors
+        plt.axvline(x=ctgVal[ctg2plot[i]], color='blue')
+        plt.fill_between(ctgVal[ctgIndUnique], posteriorStats['lowCI'],
+                         posteriorStats['highCI'], color='black', alpha=0.3)
+        plt.plot(ctgVal[ctgIndUnique], posteriorStats['estimateMedian'], color='red')
+    if showPlot:
+        plt.show()
 

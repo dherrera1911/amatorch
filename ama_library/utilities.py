@@ -6,6 +6,8 @@ import torch.nn.functional as F
 import matplotlib.pyplot as plt
 from matplotlib import patches, colors, cm
 from ama_library import quadratic_moments as qm
+from scipy.stats import circmean, circstd
+import pycircstat as pcirc
 import time
 
 ##################################
@@ -729,6 +731,66 @@ def get_estimate_statistics(estimates, ctgInd, quantiles=[0.16, 0.84]):
     return statsDict
 
 
+def get_estimate_circular_statistics(estimates, ctgInd, quantiles=[0.16, 0.84]):
+    """ Compute the circular mean, standard deviation and confidence intervals
+    of the estimates for each level of the latent variable.
+    ----------------
+    Arguments:
+    ----------------
+      - estimates: Estimates of the latent variable for each stimulus.
+        shape (nStim x 1).
+      - ctgInd: Category index for each stimulus. shape (nStim x 1).
+      - meanORmedian: Whether to compute 'mean' or 'median' for the estimate.
+      - quantiles: Quantiles to use for the confidence intervals.
+    ----------------
+    Outputs:
+    ----------------
+      - statsDict: Dictionary with the mean, standard deviation and
+        confidence intervals for each level of the latent variable.
+    """
+    estimatesMeans = np.zeros(ctgInd.max()+1)
+    estimatesMedians = np.zeros(ctgInd.max()+1)
+    estimatesSD = np.zeros(ctgInd.max()+1)
+    lowCIMean = np.zeros(ctgInd.max()+1)
+    highCIMean = np.zeros(ctgInd.max()+1)
+    lowCIMedian = np.zeros(ctgInd.max()+1)
+    highCIMedian = np.zeros(ctgInd.max()+1)
+    for cl in np.unique(ctgInd):
+        mask = (ctgInd == cl)
+        estLevel = np.deg2rad(estimates[mask])  # Stimuli of the same category
+        # If estLev has even number of values, remove one, for pcirc to work
+        # right
+        if len(estLevel) % 2 == 0:
+            estLevel = estLevel[:-1]
+        # Compute mean and median
+        estimatesMeans[cl] = pcirc.mean(estLevel)
+        estimatesMedians[cl] = pcirc.median(estLevel)
+        # Compute SD
+        estimatesSD[cl] = pcirc.std(estLevel)
+        # Compute difference to the median
+        circDiff = pcirc.cdiff(np.ones(len(estLevel))*estimatesMedians[cl],
+                               estLevel)
+        # Compute the quantiles of the differences to the median
+        lowCIMedian[cl] = estimatesMedians[cl] + np.percentile(circDiff, quantiles[0]*100)
+        highCIMedian[cl] = estimatesMedians[cl] + np.percentile(circDiff, quantiles[1]*100)
+        # Compute difference to the mean
+        circDiff = pcirc.cdiff(np.ones(len(estLevel))*estimatesMeans[cl], estLevel)
+        # Compute the quantiles of the differences to the mean
+        lowCIMean[cl] = estimatesMeans[cl] + np.percentile(circDiff, quantiles[0]*100)
+        highCIMean[cl] = estimatesMeans[cl] + np.percentile(circDiff, quantiles[1]*100)
+    # Convert radiants to degrees
+    statsDict = {
+        'estimateMean': torch.rad2deg(torch.tensor(estimatesMeans)),
+        'estimateMedian': torch.rad2deg(torch.tensor(estimatesMedians)),
+        'estimateSD': torch.rad2deg(torch.tensor(estimatesSD)),
+        'lowCIMedian': torch.rad2deg(torch.tensor(lowCIMedian)),
+        'highCIMedian': torch.rad2deg(torch.tensor(highCIMedian)),
+        'lowCIMean': torch.rad2deg(torch.tensor(lowCIMean)),
+        'highCIMean': torch.rad2deg(torch.tensor(highCIMean))
+    }
+    return statsDict
+
+
 def subsample_covariance(covariance, classInd, filtInd):
     """ Takes a tensor of shape k x d x d holding the covariance
     matrices for k classes and d filters, and returns a smaller
@@ -753,7 +815,7 @@ def subsample_covariance(covariance, classInd, filtInd):
     return covPlt
 
 
-def subsample_categories(nCtg, subsampleFactor):
+def subsample_categories_centered(nCtg, subsampleFactor):
     """
     Subsample the number of categories, while keeping the middle category.
     ----------------
@@ -794,7 +856,7 @@ def subsample_categories(nCtg, subsampleFactor):
 #
 #
 
-def unpack_matlab_data(matlabData, ctgIndName='ctgInd', ctgValName='ctgVal'):
+def unpack_matlab_data(matlabData, ctgIndName='ctgInd', ctgValName='X'):
     """ Unpack the data from the matlab file into the appropriate
     format for the model.
     ----------------
@@ -854,4 +916,53 @@ def sort_categories(ctgVal, ctgInd):
     _, ctgIndNew = torch.sort(sortedValInds)
     ctgIndSorted = ctgIndNew[ctgInd]
     return ctgValSorted, ctgIndSorted
+
+
+def remove_categories(removeCtg, ctgVal, ctgInd, s):
+    """ Remove the categories with indices in removeCtg,
+    and reindex the category indices accordingly.
+    ----------------
+    Arguments:
+    ----------------
+      - removeCtg: Indices of the categories to remove.
+      - ctgVal: Values of the latent variable for each category. (nCtg)
+      - ctgInd: Category index for each stimulus. (nStim)
+      - s: Disparity stimuli. (nStim x nFilters) 
+    ----------------
+    Outputs:
+    ----------------
+      - ctgValNew: Values of the latent variable for each category. (nCtgNew)
+      - ctgIndNew: Category index for each stimulus. (nStim)
+      - sNew: Disparity stimuli. (nStim x nFilters) 
+    """
+    # Remove categories and update ctgVal
+    ctgValNew = np.delete(ctgVal, removeCtg, axis=0)
+    # Find elements in ctgInd that are in removeCtg
+    keepInds = np.where(~np.isin(ctgInd, removeCtg))[0]
+    # Remove corresponding elements from ctgInd
+    ctgIndNew = ctgInd[keepInds]
+    # Remove corresponding rows from s
+    sNew = s[keepInds, :]
+    # Remap old indices to new categories
+    ctgIndNew = reindex_categories(ctgIndNew)
+    return ctgValNew, ctgIndNew, sNew
+
+
+def reindex_categories(ctgIndNew):
+    """ Reindex the category indices so that they are consecutive."""
+    unique_categories = np.unique(ctgIndNew)
+    category_mapping = {old_index: new_index for new_index,
+                        old_index in enumerate(unique_categories)}
+    for old_index, new_index in category_mapping.items():
+        ctgIndNew[ctgIndNew == old_index] = new_index
+    return ctgIndNew
+
+
+def find_interp_indices(ctgVal, ctgValInterp, ctgInd):
+    ctgIndNew = torch.zeros(ctgInd.shape).type(torch.long)
+    for indOld in range(len(ctgVal)):
+        indNew = torch.where(ctgValInterp==ctgVal[indOld])[0]
+        ctgIndNew[ctgInd==indOld] = int(indNew)
+    return ctgIndNew
+
 
