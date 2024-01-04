@@ -22,14 +22,14 @@ import ama_library.utilities as au
 ##############
 
 # Load data from csv files
-s = torch.tensor(np.loadtxt('./test_data/dspStim.csv', delimiter=','))
+s = torch.tensor(np.loadtxt('../data/dspStim.csv', delimiter=','))
 s = s.transpose(0,1)
 # Change s dtype to Double
 s = s.float()
-ctgInd = np.loadtxt('./test_data/dspCtg.csv', delimiter=',')
+ctgInd = np.loadtxt('../data/dspCtg.csv', delimiter=',')
 # Change ctgInd to integer tensor and make 0-indexed
 ctgInd = torch.tensor(ctgInd, dtype=torch.int64) - 1
-ctgVal = torch.tensor(np.loadtxt('./test_data/dspVal.csv', delimiter=','))
+ctgVal = torch.tensor(np.loadtxt('../data/dspVal.csv', delimiter=','))
 
 ##############
 # Initialize AMA model
@@ -54,8 +54,8 @@ ama = cl.AMA_qmiso(sAll=s, ctgInd=ctgInd, nFilt=2, respNoiseVar=respNoiseVar,
 # Models parameters
 nEpochs = 50
 lrGamma = 0.7   # multiplication factor for lr decay
-#lossFun = au.kl_loss()
-lossFun = au.cross_entropy_loss()
+#lossFun = au.kl_loss
+lossFun = au.cross_entropy_loss
 learningRate = 0.05
 lrStepSize = 5
 batchSize = 256
