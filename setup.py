@@ -12,9 +12,7 @@ setup(
     install_requires=[
       'numpy',
       'torch',
-      'matplotlib',
-      'scipy',
-      'mpmath'],
+      'matplotlib'],
     # *strongly* suggested for sharing
     version='0.1',
     # The license can be anything you like
