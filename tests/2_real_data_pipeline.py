@@ -90,5 +90,8 @@ for sp in range(2):
     plt.plot(f[sp,pix:], label='R')
 plt.show()
 
+# Export filter as csv file
+f = f.numpy()
+np.savetxt('../data/dspFilters.csv', f, delimiter=',')
 
 
