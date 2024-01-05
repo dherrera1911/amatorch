@@ -27,9 +27,8 @@
 #
 # Here we introduce a PyTorch implementation of AMA, trained through
 # gradient descent.
-# We present the mathematical formalism of the model, the different
-# components of AMA class, and the
-# functionalities to train and test an AMA model on a set of stimuli.
+# We present the mathematical formalism of the model and the different
+# components of AMA class that allow it to solve a task.
 # As an study case, we train AMA on the task of disparity estimation from
 # binocular images.
 #
@@ -84,7 +83,7 @@
 #   P(X=X_m|\mathbf{R}_{i,j}) = L(X=X_m; \mathbf{R}_{i,j}) P(X=X_m)
 # \end{equation}
 #
-# In this tutorial, we train an AMA model on a set of binocular images to solve
+# In this tutorial, we use the AMA model on a set of binocular images to solve
 # the task of estimating disparity.
 
 # <markdowncell>
