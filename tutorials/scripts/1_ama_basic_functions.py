@@ -444,29 +444,21 @@ plt.show()
 # Lets plot the Gaussian ellipses for all the levels of the latent variable.
 
 # <codecell>
-import matplotlib.colors as mcolors
 # First plot the responses like above
 ax = plt.subplot(1,1,1)
 plt.xlabel('Filter 1 response')
 plt.ylabel('Filter 2 response')
 plt.title('Fitted Gaussians')
-# Create a ScalarMappable with your colormap and limits
-colorMap = plt.get_cmap('jet')
-norm = mcolors.Normalize(vmin=ctgVal[0], vmax=ctgVal[-1])
-sm = plt.cm.ScalarMappable(cmap=colorMap, norm=norm)
-sm.set_array([])  # You need to set an array for ScalarMappable
-# Plot the ellipses of the fitted Gaussians
-for j in range(len(ctgVal)):
-    respMean = ama.respMean[j, :].detach()
-    respCov = ama.respCov[j, :, :].detach()
-    ap.plot_ellipse(mean=respMean, cov=respCov, ax=ax,
-            color=colorMap(j/19))
+# Function that plots many ellipses
+ap.plot_ellipse_set(mean=ama.respMean, cov=ama.respCov, ax=ax,
+                    ctgVal=ctgVal, colorMap='jet')
 # Add color legend
-cbar = plt.colorbar(sm, ax=ax, boundaries=np.linspace(-17, 17, 69))
-cbar.set_label('Disparity (arcmin)', loc='center', rotation=270, labelpad=20)
+ap.add_colorbar(ax=ax, ctgVal=ctgVal, colorMap='jet', label='Disparity (arcmin)')
 # Set limits
 plt.xlim(-1, 1)
 plt.ylim(-1, 1)
+plt.xticks([-1, 0, 1])
+plt.yticks([-1, 0, 1])
 # Show figure
 fig = plt.gcf()
 fig.set_size_inches(8,6)
