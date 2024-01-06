@@ -30,7 +30,7 @@ fileName = [
 
 for f in range(len(fileName)):
     inputFile = './tutorials/scripts/' + fileName[f] + '.py'
-    outputFile = './notebooks/' + fileName[f] + '.ipynb'
+    outputFile = './tutorials/notebooks/' + fileName[f] + '.ipynb'
     # Open the file
     fpin = open(inputFile)
     text = fpin.read()
