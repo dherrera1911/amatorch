@@ -18,10 +18,6 @@ setup(
       'nose',
       'quadratic_ratios',
       'geotorch'],
-    dependency_links=[
-        'https://github.com/dherrera1911/quadratic_ratios/tarball/master#egg=quadratic_ratios',
-        'https://github.com/lezcano/geotorch/tarball/master#egg=geotorch'
-    ]
     # *strongly* suggested for sharing
     version='0.1',
     # The license can be anything you like
