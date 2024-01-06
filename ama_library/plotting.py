@@ -42,7 +42,7 @@ def plot_ellipse(mean, cov, ax, color='black'):
     ellipse = patches.Ellipse(xy=mean, width=scale[0]*4, height=scale[1]*4,
                               angle=angle*180/np.pi, color=color)
     ellipse.set_facecolor('none')
-    ellipse.set_linewidth(4)
+    ellipse.set_linewidth(3)
     ax.add_patch(ellipse)
 
 
