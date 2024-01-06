@@ -24,16 +24,12 @@ def uncomment_flagged_blocks(text):
 
 
 fileName = [
-        "ama_basic_tutorial",
-        "ama_batch_size_analysis_dsp",
-        "ama_sequential_training_dsp",
-        "ama_manifold_geometry_analysis",
-        "ama_filter_learning_robustness",
-        "normalized_cov_approximation",
+        "1_ama_basic_functions",
+        "2_ama_basic_training"
         ]
 
 for f in range(len(fileName)):
-    inputFile = './scripts/tutorials/' + fileName[f] + '.py'
+    inputFile = './tutorials/scripts/' + fileName[f] + '.py'
     outputFile = './notebooks/' + fileName[f] + '.ipynb'
     # Open the file
     fpin = open(inputFile)
