@@ -21,12 +21,15 @@
 #!wget --no-check-certificate -O  ./data/dspFilters.csv https://raw.githubusercontent.com/dherrera1911/accuracy_maximization_analysis/master/data/dspFilters.csv
 ##UNCOMMENT_FOR_COLAB_END##
 
+
 # <codecell>
-# FIRST WE NEED TO DOWNLOAD AND INSTALL GEOTORCH
+# FIRST WE NEED TO DOWNLOAD AND INSTALL GEOTORCH AND QUADRATIC RATIOS PACKAGES
 ##UNCOMMENT_FOR_COLAB_START##
 #!pip install geotorch
 #import geotorch
+#!pip install git+https://github.com/dherrera1911/quadratic_ratios.git
 ##UNCOMMENT_FOR_COLAB_END##
+
 
 # <codecell>
 # INSTALL THE AMA_LIBRARY PACKAGE FROM GITHUB
