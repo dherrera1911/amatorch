@@ -1,9 +1,10 @@
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
+from matplotlib.cm import ScalarMappable
+from matplotlib.colors import Normalize
 import seaborn as sns
 from matplotlib import patches, colors, cm
-from ama_library import quadratic_moments as qm
 from ama_library import utilities as au
 import time
 
@@ -17,6 +18,101 @@ import time
 ##################################
 #
 #
+
+
+def plot_ellipse(mean, cov, ax, color='black'):
+    """ Draw an ellipse on the input axis
+    -----------------
+    Arguments:
+    -----------------
+      - mean: Tensor with the mean of the Gaussian distribution.
+        length 2 tensor
+      - cov: Tensor with the covariance matrix of the Gaussian
+          distribution. 2x2 tensor
+      - ax: Axis handle on which to draw the ellipse.
+      - color: Color of the ellipse.
+    """
+    # Get eigenvalues and eigenvectors
+    eigVal, eigVec = torch.symeig(cov, eigenvectors=True)
+    # Get the angle of the ellipse
+    angle = torch.atan2(eigVec[1, 0], eigVec[0, 0])
+    # Get the length of the semi-axes
+    scale = torch.sqrt(eigVal)
+    # Plot the ellipse
+    ellipse = patches.Ellipse(xy=mean, width=scale[0]*4, height=scale[1]*4,
+                              angle=angle*180/np.pi, color=color)
+    ellipse.set_facecolor('none')
+    ellipse.set_linewidth(4)
+    ax.add_patch(ellipse)
+
+
+def plot_ellipse_set(mean, cov, ax, ctgVal, colorMap='viridis'):
+    """ Plot a set of ellipses, one for each category
+    -----------------
+    Arguments:
+    -----------------
+      - mean: Tensor with the means of a set of Gaussian distributions.
+        Length nx2 tensor
+      - cov: Tensor with the covariance matrix of the Gaussian
+          distribution. nx2x2 tensor
+      - ctgVal: Vector with the value that determines the color of
+          each ellipse in the given colorMap. Length n tensor
+      - ax: Axis handle on which to draw the ellipse.
+      - colorMap: Color map to use for the ellipses.
+    """
+    # Get number of categories
+    nCtg = cov.shape[0]
+    # Get color map
+    cmap = plt.get_cmap(colorMap)
+    # Get the color for each category
+    norm = Normalize(vmin=min(ctgVal), vmax=max(ctgVal))
+    colors = cmap(norm(ctgVal))
+    # Plot each ellipse
+    for i in range(nCtg):
+        plot_ellipse(mean=mean[i,:], cov=cov[i,:,:], ax=ax, color=colors[i])
+
+
+def add_colorbar(ax, ctgVal, colorMap='viridis', label='', ticks=None):
+    """
+    Add a color bar to the axes based on the ctgVal array.
+    -----------------
+    Arguments:
+    -----------------
+      - ax: Axis handle on which to draw the ellipse.
+      - ctgVal: Array of color values used. Min and max are taken
+          from this array.
+      - colorMap: Color map to use for the ellipses.
+      - label: Label for the color bar.
+      - ticks: Specific tick marks to place on the color bar.
+    """
+    cmap = plt.get_cmap(colorMap)
+    norm = Normalize(vmin=min(ctgVal), vmax=max(ctgVal))
+    sm = ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])  # Needed for matplotlib < 3.1
+    cbar = plt.colorbar(sm, ax=ax, ticks=ticks)
+    cbar.set_label(label, rotation=270)
+
+
+def response_scatter(ax, resp, ctgVal, colorMap='viridis'):
+    """ Scatter plot of the responses to the stimuli, with color
+    indicating the category value.
+    -----------------
+    Arguments:
+    -----------------
+      - ax: Axis handle on which to draw the ellipse.
+      - resp: Tensor with the responses to the stimuli. nStim x 2
+      - ctgVal: Vector with the color value for each stimulus response.
+          Length nStim tensor
+      - colorMap: Color map to use for the response points.
+    """
+    # Get color map
+    cmap = plt.get_cmap(colorMap)
+    # Get the color for each category
+    norm = Normalize(vmin=min(ctgVal), vmax=max(ctgVal))
+    colors = cmap(norm(ctgVal))
+    # Scatter plot
+    ax.scatter(resp[:,0], resp[:,1], c=colors, cmap=cmap, s=20,
+               norm=norm, alpha=0.3)
 
 
 def response_ellipses_subplot(covariance, resp=None, ctgInd=None, ctgVal=None,
@@ -262,7 +358,7 @@ def plot_covariance_values(covariances, xVal=None, covarianceNames=None,
 ##################################
 #
 #
-
+################# MOST OF THESE SHOULD PROBABLY GO
 ###########
 ### 1D BINOCULAR IMAGES
 ###########

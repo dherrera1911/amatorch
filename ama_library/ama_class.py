@@ -104,6 +104,7 @@ class AMA(ABC, nn.Module):
         """ Move model tensors to the indicated  device. """
         super().to(device)
         self.device = device
+        self.f = self.f.to(device)
         self.fFixed = self.fFixed.to(device)
         self.ctgVal = self.ctgVal.to(device)
         self.stimMean = self.stimMean.to(device)
@@ -268,7 +269,7 @@ class AMA(ABC, nn.Module):
         return resp
 
 
-    def get_log_likelihood(self, s, addRespNoise=True):
+    def get_ll(self, s, addRespNoise=True):
         """ Compute the class posteriors for each stimulus in s. Noise
         can be added to the responses.
         -----------------
@@ -280,7 +281,7 @@ class AMA(ABC, nn.Module):
         -----------------
         Output:
         -----------------
-            - logLikelihoods: Matrix with the log-likelihood function across
+            - ll: Matrix with the log-likelihood function across
             classes for each stimulus. (nStim x nClasses)
         """
         if s.dim() == 1:
@@ -288,8 +289,8 @@ class AMA(ABC, nn.Module):
         # 1) Get filter responses
         resp = self.get_responses(s=s, addRespNoise=addRespNoise)
         # 2) Get log-likelihood from the responses
-        logLikelihoods = self.resp_2_log_likelihood(resp)
-        return logLikelihoods
+        ll = self.resp_2_ll(resp)
+        return ll
 
 
     def get_posteriors(self, s, addRespNoise=True):
@@ -309,9 +310,9 @@ class AMA(ABC, nn.Module):
         if s.dim() == 1:
             s = s.unsqueeze(0)
         # 1) Get log-likelihoods
-        logLikelihoods = self.get_log_likelihood(s=s, addRespNoise=addRespNoise)
+        ll = self.get_ll(s=s, addRespNoise=addRespNoise)
         # 2) Get posteriors from log-likelihoods
-        posteriors = self.log_likelihood_2_posterior(logLikelihoods)
+        posteriors = self.ll_2_posterior(ll)
         return posteriors
 
 
@@ -338,7 +339,7 @@ class AMA(ABC, nn.Module):
         return estimates
 
 
-    def resp_2_log_likelihood(self, resp):
+    def resp_2_ll(self, resp):
         """ Compute log-likelihood of each class given the filter responses.
         -----------------
         Arguments:
@@ -347,7 +348,7 @@ class AMA(ABC, nn.Module):
         -----------------
         Output:
         -----------------
-            - logLikelihoods: Matrix with the log-likelihood function across
+            - ll: Matrix with the log-likelihood function across
             classes for each stimulus. (nStim x nClasses)
         """
         nStim = resp.shape[0]
@@ -363,16 +364,16 @@ class AMA(ABC, nn.Module):
         llConst = -0.5 * self.nFiltAll * torch.log(2*torch.tensor(torch.pi)) - \
             0.5 * torch.logdet(self.respCov)
         # 4) Add quadratics and constants to get log-likelihood
-        logLikelihoods = quadratics + llConst.repeat(nStim, 1)
-        return logLikelihoods
+        ll = quadratics + llConst.repeat(nStim, 1)
+        return ll
 
 
-    def log_likelihood_2_posterior(self, logLikelihoods):
+    def ll_2_posterior(self, ll):
         """ Convert log-likelihoods to posterior probabilities.
         -----------------
         Arguments:
         -----------------
-            - logLikelihoods: Matrix with the log-likelihood function across
+            - ll: Matrix with the log-likelihood function across
             classes for each stimulus. (nStim x nClasses)
         -----------------
         Output:
@@ -380,7 +381,7 @@ class AMA(ABC, nn.Module):
             - posteriors: Matrix with the posterior distribution across classes
             for each stimulus. (nStim x nClasses)
         """
-        posteriors = F.softmax(logLikelihoods, dim=1)
+        posteriors = F.softmax(ll, dim=1)
         return posteriors
 
 
@@ -767,123 +768,3 @@ class AMA_qmiso(AMA):
             loc=torch.zeros(self.nFiltAll, device=self.device),
             covariance_matrix=self.respNoiseCov)
 
-#
-#
-#    def compute_response_mean(self, s=None, ctgInd=None, sAmp=None, sameAsInit=True):
-#        """ Compute the mean of the filter responses to the noisy stimuli for each class.
-#        Note that this are the noiseless filters.
-#        -----------------
-#        Arguments:
-#        -----------------
-#            - s: stimulus matrix for which to compute the mean responses.
-#                If normalization is broadband and sameAsInit=True, it is
-#                not required. (nStim x nDim)
-#            - ctgInd: Vector with index categories for the stimuli in i. (length nStim)
-#            - sAmp: Optional to save compute when normalization='narrowband'.
-#                Amplitude spectrum of NORMALIZED stimuli. Should be computed with
-#                au.compute_amplitude_spectrum(s)' (nStim x nDim)
-#            - sameAsInit: Logical indicating whether it is the same stimulus set
-#                as for initialization. Indicates whether to use precomputed parameters.
-#        -----------------
-#        Outputs:
-#        -----------------
-#            - respMean: Mean responses of each model filter to the noisy normalized
-#            stimuli of each class. (nClasses x nFilt)
-#        """
-#        fAll = self.all_filters()
-#        if self.filtNorm=='broadband':
-#            if sameAsInit:
-#                respMean = torch.einsum('cd,kd->ck', self.stimMean, fAll)
-#            else:
-#                if s is None:
-#                    raise ValueError('''Error: If not same stimuli as initialization,
-#                            you need to provide new stimuli as input''')
-#                respMean = qm.isotropic_ctg_resp_mean(s=s, sigma=self.pixelSigma,
-#                        f=fAll, normalization=self.filtNorm, ctgInd=ctgInd)
-#        elif self.filtNorm=='narrowband':
-#            if sameAsInit:
-#                invNormMean = self.invNormMean
-#            else:
-#                invNormMean = None
-#            respMean = qm.isotropic_ctg_resp_mean(s=s, sigma=self.pixelSigma, f=fAll,
-#                    normalization=self.filtNorm, ctgInd=ctgInd, sAmp=sAmp,
-#                    invNormMean=invNormMean)
-#        return respMean
-#
-#
-#    def compute_response_cov(self, s=None, ctgInd=None, sAmp=None, sameAsInit=True):
-#        """ Compute the mean of the filter responses to the noisy stimuli for each class.
-#        Note that this are the noiseless filters.
-#        -----------------
-#        Arguments:
-#        -----------------
-#            - s: stimulus matrix for which to compute the mean responses.
-#                If normalization is broadband and sameAsInit=True, it is
-#                not required. (nStim x nDim)
-#            - ctgInd: Vector with index categories for the stimuli in i. (length nStim)
-#            - sAmp: Optional to save compute when normalization='narrowband'.
-#                Amplitude spectrum of NORMALIZED stimuli. Should be computed with
-#                au.compute_amplitude_spectrum(s)' (nStim x nDim)
-#            - sameAsInit: Logical indicating whether it is the same stimulus set
-#                as for initialization. Indicates whether to use precomputed parameters.
-#        -----------------
-#        Outputs:
-#        -----------------
-#            - respCov: Covariance of filter responses to the noisy normalized
-#            stimuli of each class. (nClasses x nFilt x nFilt)
-#        """
-#        fAll = self.all_filters()
-#        ### Simplest method, only works for broadband normalization
-#        if self.respCovPooling=='pre-filter':
-#            if self.filtNorm=='narrowband':
-#                raise ValueError('''Error: pre-filter pooling can only
-#                take broadband normalization''')
-#            if sameAsInit:
-#                # If sameAsInit, use precomputed stim covariances
-#                respCov = torch.einsum('kd,cdb,mb->ckm', fAll, self.stimCov, fAll)
-#            else:
-#                if s is None:
-#                    raise ValueError('''Error: If not same stimuli as initialization,
-#                            you need to provide new stimuli as input''')
-#                # If not sameAsInit, use new stim to compute covariances
-#                stimCov = self.compute_norm_stim_cov(s=s, ctgInd=ctgInd,
-#                        sameAsInit=sameAsInit)
-#                respCov = torch.einsum('kd,cdb,mb->ckm', fAll, stimCov, fAll)
-#        ### More complex, but more accurate method
-#        elif self.respCovPooling=='post-filter':
-#            # Get the parameters needed to weight different stimuli
-#            if sameAsInit:
-#                # If these are the initialization stimuli, use precomputed parameters
-#                meanW = self.smMeanW
-#                noiseW = self.smNoiseW
-#            else:
-#                nc, meanW, noiseW = qm.compute_isotropic_formula_weights(s=s,
-#                        sigma=self.pixelSigma)
-#                meanW = meanW.to(s.device)
-#                noiseW = noiseW.to(s.device)
-#            if self.filtNorm=='narrowband':
-#                # If narrowband, get the parameters needed to implement normalization
-#                if sAmp is not None:
-#                    # Compute similarity scores
-#                    similarities = qm.compute_amplitude_similarity(s=sAmp, f=fAll,
-#                            stimSpace='fourier', filterSpace='signal')
-#                    normFactors = 1/similarities
-#                else:
-#                    normFactors = None
-#            ### Compute the second moment matrix
-#            respSM = qm.isotropic_ctg_resp_secondM(s=s, f=fAll, sigma=self.pixelSigma,
-#                    noiseW=noiseW, meanW=meanW, normalization=self.filtNorm,
-#                    ctgInd=ctgInd, normFactors=normFactors)
-#            # Convert second moment matrix to covariance matrix using response means
-#            if sameAsInit and self.printWarnings:
-#                print('''Warning: Response covariance updating is assuming
-#                        response means are already updated''')
-#                respCov = qm.secondM_2_cov(secondM=respSM, mean=self.respMean)
-#            else:
-#                respMean = self.compute_response_mean(s=s, ctgInd=ctgInd,
-#                        sAmp=sAmp, sameAsInit=sameAsInit)
-#                respCov = qm.secondM_2_cov(secondM=respSM, mean=respMean)
-#        respCov = (respCov + respCov.transpose(1,2))/2
-#        return respCov
-#
-#

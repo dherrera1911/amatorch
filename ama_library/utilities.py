@@ -285,7 +285,7 @@ def cross_entropy_loss(model, s, ctgInd):
     """
     posteriors = model.get_posteriors(s)
     nStim = s.shape[0]
-    loss = -torch.mean(posteriors[torch.arange(nStim), ctgInd])
+    loss = -torch.mean(torch.log(posteriors[torch.arange(nStim), ctgInd]))
     return loss
 
 
@@ -489,7 +489,7 @@ def secondM_2_cov(secondM, mean, nStim=None):
 #
 
 # Function that turns posteriors into estimate averages, SDs and CIs
-def get_estimate_statistics(estimates, ctgInd, quantiles=[0.16, 0.84]):
+def get_estimate_statistics(estimates, ctgInd, quantiles=torch.tensor([0.16, 0.84])):
     """ Compute the mean, standard deviation and confidence intervals
     of the estimates for each level of the latent variable.
     ----------------
