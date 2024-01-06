@@ -15,9 +15,10 @@ setup(
       'matplotlib',
       'pycircstat',
       'einops',
-      'nose'],
+      'nose',
+      'quadratic_ratios'],
     dependency_links=[
-        'https://github.com/dherrera1911/quadratic_ratios.git'
+        'https://github.com/dherrera1911/quadratic_ratios/tarball/master#egg=quadratic_ratios'
     ]
     # *strongly* suggested for sharing
     version='0.1',
