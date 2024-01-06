@@ -16,9 +16,11 @@ setup(
       'pycircstat',
       'einops',
       'nose',
-      'quadratic_ratios'],
+      'quadratic_ratios',
+      'geotorch'],
     dependency_links=[
-        'https://github.com/dherrera1911/quadratic_ratios/tarball/master#egg=quadratic_ratios'
+        'https://github.com/dherrera1911/quadratic_ratios/tarball/master#egg=quadratic_ratios',
+        'https://github.com/lezcano/geotorch/tarball/master#egg=geotorch'
     ]
     # *strongly* suggested for sharing
     version='0.1',
