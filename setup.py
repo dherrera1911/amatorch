@@ -16,6 +16,9 @@ setup(
       'pycircstat',
       'einops',
       'nose'],
+    dependency_links=[
+        'https://github.com/dherrera1911/quadratic_ratios.git'
+    ]
     # *strongly* suggested for sharing
     version='0.1',
     # The license can be anything you like
