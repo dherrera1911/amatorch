@@ -207,10 +207,11 @@ plt.show()
 # We download and import the library below.
 
 # <codecell>
-# FIRST WE NEED TO DOWNLOAD AND INSTALL GEOTORCH
+# FIRST WE NEED TO DOWNLOAD AND INSTALL GEOTORCH AND QUADRATIC RATIOS PACKAGES
 ##UNCOMMENT_FOR_COLAB_START##
 #!pip install geotorch
 #import geotorch
+#!pip install git+https://github.com/dherrera1911/quadratic_ratios.git
 ##UNCOMMENT_FOR_COLAB_END##
 
 # <codecell>
