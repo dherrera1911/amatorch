@@ -33,7 +33,10 @@ def plot_ellipse(mean, cov, ax, color='black'):
       - color: Color of the ellipse.
     """
     # Get eigenvalues and eigenvectors
-    eigVal, eigVec = torch.linalg.eigh(cov)
+    #eigVal, eigVec = torch.linalg.eigh(cov)
+    eigVal, eigVec = torch.linalg.eig(cov)
+    eigVal = eigVal.real
+    eigVec = eigVec.real
     # Get the angle of the ellipse
     angle = torch.atan2(eigVec[1, 0], eigVec[0, 0])
     # Get the length of the semi-axes
