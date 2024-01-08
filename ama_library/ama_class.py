@@ -183,7 +183,7 @@ class AMA(ABC, nn.Module):
         """ Re-initialize the trainable filters to random values.
         RESPONSE STATISTICS NEED TO BE UPDATED MANUALLY AFTER.
         """
-        fRandom = torch.randn(self.nFilt, self.nDim)
+        fRandom = torch.randn(self.nFiltTrain, self.nDim)
         fRandom = F.normalize(fRandom, p=2, dim=1)
         self.assign_filter_values(fNew=fRandom)
 
