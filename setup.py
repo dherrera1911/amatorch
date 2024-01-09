@@ -15,9 +15,7 @@ setup(
       'matplotlib',
       'pycircstat',
       'einops',
-      'nose',
-      'quadratic_ratios',
-      'geotorch'],
+      'nose'],
     # *strongly* suggested for sharing
     version='0.1',
     # The license can be anything you like
