@@ -105,7 +105,8 @@ def fit(nEpochs, model, trainDataLoader, lossFun, opt, scheduler=None,
 
 # LOOP TO TRAIN MULTIPLE SEEDS AND CHOOSE BEST
 def fit_multiple_seeds(nEpochs, model, trainDataLoader, lossFun, opt_fun,
-        nSeeds=1, scheduler_fun=None, sTst=None, ctgIndTst=None):
+        nSeeds=1, scheduler_fun=None, sTst=None, ctgIndTst=None,
+        printProg=False):
     """
     Fit AMA model multiple times from different seeds, and keep the result with
     best performance.
@@ -160,7 +161,7 @@ def fit_multiple_seeds(nEpochs, model, trainDataLoader, lossFun, opt_fun,
         trnLoss[p,:], tstLoss[p,:], elapsedTimes[p,:] = fit(
             nEpochs=nEpochs, model=model, trainDataLoader=trainDataLoader,
             lossFun=lossFun, opt=opt, scheduler=scheduler, sTst=sTst,
-            ctgIndTst=ctgIndTst, printProg=False)
+            ctgIndTst=ctgIndTst, printProg=printProg)
         # Save filters
         filters[p] = model.f.detach().clone()
         # Get the loss for these filters
@@ -182,7 +183,8 @@ def fit_multiple_seeds(nEpochs, model, trainDataLoader, lossFun, opt_fun,
 
 # TRAIN MODEL FILTERS IN PAIRS, WITH POSSIBLE SEED SELECTION
 def fit_by_pairs(nEpochs, model, trainDataLoader, lossFun, opt_fun,
-        nPairs, scheduler_fun=None, seedsByPair=1, sTst=None, ctgIndTst=None):
+        nPairs, scheduler_fun=None, seedsByPair=1, sTst=None, ctgIndTst=None,
+        printProg=False):
     """
     Fit AMA model training filters by pairs. After a pair is trained, it
     is fixed in place (no longer trainable), and a new set of trainable
@@ -242,15 +244,16 @@ def fit_by_pairs(nEpochs, model, trainDataLoader, lossFun, opt_fun,
                 fit_multiple_seeds(
                     nEpochs=nEpochs, model=model, trainDataLoader=trainDataLoader,
                     lossFun=lossFun, opt_fun=opt_fun, nSeeds=seedsByPair,
-                    scheduler_fun=scheduler_fun, sTst=sTst, ctgIndTst=ctgIndTst)
+                    scheduler_fun=scheduler_fun, sTst=sTst, ctgIndTst=ctgIndTst,
+                    printProg=printProg)
         end = time.time()
         elapsedTime = end - start
         minutes, seconds = divmod(int(elapsedTime), 60)
         print(f'########## PAIR {p+1} TRAINED IN {minutes:02d}:{seconds:02d} '
               '########## \n ')
     # Put all the filters into f
-    fAll = model.fixed_and_trainable_filters().detach().clone()
-    model.assign_filter_values()
+    fAll = model.all_filters().detach().clone()
+    model.assign_filter_values(fAll)
     model.add_fixed_filters(fFixed=torch.tensor([]))
     model.update_response_statistics()
     return trnLoss, tstLoss, elapsedTimes, filters
@@ -302,7 +305,7 @@ def kl_loss(model, s, ctgInd):
     ----------------
       - loss: Negative LL loss
     """
-    logProbs = F.log_softmax(model.get_log_likelihood(s), dim=1)
+    logProbs = F.log_softmax(model.get_ll(s), dim=1)
     nStim = s.shape[0]
     loss = -torch.mean(logProbs[torch.arange(nStim), ctgInd])
     return loss
