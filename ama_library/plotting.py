@@ -60,6 +60,11 @@ def plot_ellipse_set(mean, cov, ax, ctgVal, colorMap='viridis'):
       - ax: Axis handle on which to draw the ellipse.
       - colorMap: Color map to use for the ellipses.
     """
+    # Get color map
+    if isinstance(colorMap, str):
+        cmap = plt.get_cmap(colorMap)
+    else:
+        cmap = colorMap
     # Get number of categories
     nCtg = cov.shape[0]
     # Get color map
@@ -70,27 +75,6 @@ def plot_ellipse_set(mean, cov, ax, ctgVal, colorMap='viridis'):
     # Plot each ellipse
     for i in range(nCtg):
         plot_ellipse(mean=mean[i,:], cov=cov[i,:,:], ax=ax, color=colors[i])
-
-
-def add_colorbar(ax, ctgVal, colorMap='viridis', label='', ticks=None):
-    """
-    Add a color bar to the axes based on the ctgVal array.
-    -----------------
-    Arguments:
-    -----------------
-      - ax: Axis handle on which to draw the ellipse.
-      - ctgVal: Array of color values used. Min and max are taken
-          from this array.
-      - colorMap: Color map to use for the ellipses.
-      - label: Label for the color bar.
-      - ticks: Specific tick marks to place on the color bar.
-    """
-    cmap = plt.get_cmap(colorMap)
-    norm = Normalize(vmin=min(ctgVal), vmax=max(ctgVal))
-    sm = ScalarMappable(cmap=cmap, norm=norm)
-    sm.set_array([])  # Needed for matplotlib < 3.1
-    cbar = plt.colorbar(sm, ax=ax, ticks=ticks)
-    cbar.set_label(label, rotation=270)
 
 
 def response_scatter(ax, resp, ctgVal, colorMap='viridis'):
@@ -106,13 +90,101 @@ def response_scatter(ax, resp, ctgVal, colorMap='viridis'):
       - colorMap: Color map to use for the response points.
     """
     # Get color map
-    cmap = plt.get_cmap(colorMap)
+    if isinstance(colorMap, str):
+        cmap = plt.get_cmap(colorMap)
+    else:
+        cmap = colorMap
     # Get the color for each category
     norm = Normalize(vmin=min(ctgVal), vmax=max(ctgVal))
     colors = cmap(norm(ctgVal))
     # Scatter plot
-    ax.scatter(resp[:,0], resp[:,1], c=colors, cmap=cmap, s=20,
-               norm=norm, alpha=0.3)
+    ax.scatter(resp[:,0], resp[:,1], c=colors, s=40, alpha=0.5)
+
+
+def add_colorbar(ax, ctgVal, colorMap='viridis', label='', ticks=None):
+    """
+    Add a color bar to the axes based on the ctgVal array.
+    -----------------
+    Arguments:
+    -----------------
+      - ax: Axis handle on which to draw the ellipse.
+      - ctgVal: Array of color values used. Min and max are taken
+          from this array.
+      - colorMap: Color map to use for the ellipses.
+      - label: Label for the color bar.
+      - ticks: Specific tick marks to place on the color bar.
+    """
+    # Get color map
+    if isinstance(colorMap, str):
+        cmap = plt.get_cmap(colorMap)
+    else:
+        cmap = colorMap
+    # Get fig from ax
+    fig = ax.get_figure()
+    norm = Normalize(vmin=min(ctgVal), vmax=max(ctgVal))
+    sm = ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])
+    #cax = fig.add_axes([0.29, 0.90, 0.60, 0.025])
+    cax = fig.add_axes([0.99, 0.10, 0.03, 0.7])
+    cbar = fig.colorbar(sm, cax=cax, ticks=ticks)
+    cbar.ax.set_title(label, loc='center', fontsize=26)
+    cbar.ax.yaxis.set_label_coords(7, 1.1)
+    cbar.ax.tick_params(labelsize=26)
+
+
+def plot_covariance_values(axes, covariance, xVal=None, color='black',
+                           label='', size=None):
+    """
+    Plot how each element i,j of the covariance matrix changes as a function
+    of the level of the latent varaiable.
+    -----------------
+    Arguments:
+    -----------------
+      - axes: Axis handle on which to draw the values.
+      - covariances: List of arrays of covariance matrices to plot.
+          Each element of the list has shape (n, c, c)
+          where n is the number of matrices and c is the dimension of each matrix.
+          Can be the object respCov that is obtained from an ama object.
+      - xVal: List of x axis values for each element in covariances.
+      - color: Color of the scatter plot.
+      - label: Label for the scatter plot.
+      - size: Size of the scatter plot points.
+    """
+    # Size of the covariance matrices
+    c = covariance.shape[1]
+    n = covariance.shape[0] # Number of covariance matrices
+    if xVal is None:
+        xVal = np.linspace(-1, 1, n)
+    # Get size of axes
+    nAxes = axes.shape
+    # Iterate over the lower triangle of the covariance matrices
+    for i in range(c):
+        for j in range(i+1):
+            # Check that there's an ax on which to plot
+            if i < nAxes[0] and j < nAxes[1]:
+                # Extract the (i,j)-th element from each covariance matrix
+                elementValues = covariance[:, i, j]
+                # Plot how this element changes as a function of k
+                scatter = axes[i, j].scatter(xVal, elementValues, color=color,
+                                            label=label, s=size)
+                # Draw horizontal line through 0
+                axes[i, j].axhline(y=0, color='k', linestyle='--', linewidth=0.5)
+                # Remove x axis labels if not last row
+                if i != c - 1:
+                    axes[i, j].set_xticklabels([])
+                axes[i, j].set_yticklabels([])
+                # Remove redundant plots
+                if i != j:
+                    axes[j, i].axis('off')
+#    # Create the legend in the top right subplot
+#    axes[0, -1].legend(legend_handles, covarianceNames, loc="center")
+#    axes[0, -1].axis('off')  # turn off axis lines and labels
+#    plt.tight_layout()
+#    if showPlot:
+#        plt.show()
+
+
+
 
 
 def response_ellipses_subplot(covariance, resp=None, ctgInd=None, ctgVal=None,
@@ -279,76 +351,6 @@ def all_response_ellipses(model, s, ctgInd, ctgStep, colorLabel,
     plt.show()
 
 
-def plot_covariance_values(covariances, xVal=None, covarianceNames=None,
-        sizeList=None, maxInd=None, showPlot=True):
-    """
-    Plot how each element i,j of the covariance matrix changes as a function
-    of the level of the latent varaiable.
-    -----------------
-    Arguments:
-    -----------------
-      - covariances: List of arrays of covariance matrices to plot.
-          Each element of the list has shape (n, c, c)
-          where n is the number of matrices and c is the dimension of each matrix.
-          Can be the object respCov that is obtained from an ama object.
-      - covarianceNames: List of labels for each element in covariances.
-      - xVal: List of x axis values for each element in covariances.
-    """
-    # Checking if covarianceNames is not given then assign default names
-    if covarianceNames is None:
-        covarianceNames = ["Covariance " + str(i) for i in range(len(covariances))]
-    if sizeList is None:
-        sizeList = np.ones(len(covariances)) * 0.5
-    # Generate colors for each element in covariances
-    colors = plt.cm.rainbow(np.linspace(0, 1, len(covariances)))
-    # Size of the covariance matrices
-    if maxInd is None:
-      c = covariances[0].shape[1]
-    else:
-      c = maxInd
-    # Create a grid of subplots with c rows and c columns
-    fig, axs = plt.subplots(c, c, figsize=(15, 15))
-    # Handles for storing legend items
-    legend_handles = []
-    # Iterate over the covariances list
-    for covIndex, covariance in enumerate(covariances):
-        n = covariance.shape[0] # Number of covariance matrices
-        if xVal is None:
-            x = np.linspace(-1, 1, n)
-        else:
-            x = xVal[covIndex]
-        # Iterate over the lower triangle of the covariance matrices
-        for i in range(c):
-            for j in range(i+1):
-                # Extract the (i,j)-th element from each covariance matrix
-                elementValues = covariance[:, i, j]
-                # add a bit of noise to prevent overlapping
-                x = x + np.random.randn(len(x)) * 0.00005
-                # Plot how this element changes as a function of k
-                scatter = axs[i, j].scatter(x, elementValues,
-                                            color=colors[covIndex],
-                                            label=covarianceNames[covIndex],
-                                            s=sizeList[covIndex], alpha=1)
-                # Draw horizontal line through 0
-                axs[i, j].axhline(y=0, color='k', linestyle='--', linewidth=0.5)
-                # Add scatter plot to legend handles on first pass
-                if i == 0 and j == 0:
-                    legend_handles.append(scatter)
-                # Remove x axis labels if not last row
-                if i != c - 1:
-                    axs[i, j].set_xticklabels([])
-                axs[i, j].set_yticklabels([])
-                # Remove redundant plots
-                if i != j:
-                    axs[j, i].axis('off')
-    # Create the legend in the top right subplot
-    axs[0, -1].legend(legend_handles, covarianceNames, loc="center")
-    axs[0, -1].axis('off')  # turn off axis lines and labels
-    plt.tight_layout()
-    if showPlot:
-        plt.show()
-
-
 ##################################
 ##################################
 #
@@ -359,82 +361,6 @@ def plot_covariance_values(covariances, xVal=None, covarianceNames=None,
 #
 #
 ################# MOST OF THESE SHOULD PROBABLY GO
-###########
-### 1D BINOCULAR IMAGES
-###########
-
-
-def view_1D_bino_image(inputVec, x=[], title=''):
-    """
-    Plot a vector that contains a 1D binocular image. The plot
-    overlaps the first half of the vector (left eye) and second half
-    (right eye).
-    -----------------
-    Arguments:
-    -----------------
-      - inputVec: Vector to plot. Usually, filter or input image.
-      - x: x axis ticks. Optional
-      - title: Plot title. Optional
-    """
-    plt.title(title)
-    nPixels = int(max(inputVec.shape)/2)
-    if len(x) == 0:
-        x = np.arange(nPixels)
-    plt.plot(x, inputVec[:nPixels], label='L', color='red')
-    plt.plot(x, inputVec[nPixels:], label='R', color='blue')
-    plt.ylim(-0.35, 0.35)
-
-
-def view_all_filters_1D_bino_image(fAll, x=[]):
-    """
-    Plot all the filters contained in an ama model, trained to
-    process 1D binocular images.
-    -----------------
-    Arguments:
-    -----------------
-      - fAll: Matrix that contains all the filters. Each row
-          contains a filter.
-    """
-    nFiltAll = fAll.shape[0]
-    nPairs = int(nFiltAll/2)
-    for n in range(nFiltAll):
-        plt.subplot(nPairs, 2, n+1)
-        view_1D_bino_image(fAll[n,:], x=[], title=f'F{n}')
-
-###########
-### 1D BINOCULAR VIDEOS
-###########
-
-def unvectorize_1D_binocular_video(inputVec, nFrames=15):
-    """
-    Take a 1D binocular video, in the shape of a vector, and
-    reshape it into a 2D matrix, where each row is a time frame,
-    each column is a time-changing pixel, and the left and right
-    half of the matrix contain the left eye and right eye videos
-    respectively.
-    -----------------
-    Arguments:
-    -----------------
-      - inputVec: Vector that contains a 1D binocular video. It
-          can be  matrix, where each row is a 1D binocular video.
-      - frames: Number of time frames in the video
-    -----------------
-    Outputs:
-    -----------------
-      - matVideo: 2D format of the 1D video, with rows as frames and
-          columns as pixels. (nStim x nFrames x nPixels*2)
-    """
-    if inputVec.dim() == 1:
-        inputVec = inputVec.unsqueeze(0)
-    nVec = inputVec.shape[0]
-    nPixels = round(inputVec.shape[1]/(nFrames*2))
-    outputMat = torch.zeros(nVec, nFrames, nPixels*2)
-    leftEye = inputVec[torch.arange(nVec), 0:(nPixels*nFrames)]
-    rightEye = inputVec[torch.arange(nVec), (nPixels*nFrames):]
-    leftEye = leftEye.reshape(nVec, nFrames, nPixels)
-    rightEye = rightEye.reshape(nVec, nFrames, nPixels)
-    outputMat = torch.cat((leftEye, rightEye), dim=2)
-    return outputMat
 
 
 def vectorize_2D_binocular_video(matVideo, nFrames=15):
