@@ -452,7 +452,7 @@ def category_secondM(s, ctgInd):
     return stimSM
 
 
-def secondM_2_cov(secondM, mean, nStim=None):
+def secondM_2_cov(secondM, mean):
     """Convert matrices of second moments to covariances, by
     subtracting the product of the mean with itself.
     ----------------
@@ -473,11 +473,7 @@ def secondM_2_cov(secondM, mean, nStim=None):
     if mean.dim() == 1:
         mean = mean.unsqueeze(0)
     # Get the multiplying factor to make covariance unbiased
-    if nStim is None:
-        unbiasingFactor = 1
-    else:
-        unbiasingFactor = nStim/(nStim-1)
-    covariance = (secondM - torch.einsum('cd,cb->cdb', mean, mean)) * unbiasingFactor
+    covariance = secondM - torch.einsum('cd,cb->cdb', mean, mean)
     return covariance
 
 
@@ -538,7 +534,6 @@ def get_estimate_circular_statistics(estimates, ctgInd, quantiles=[0.16, 0.84]):
       - estimates: Estimates of the latent variable for each stimulus.
         shape (nStim x 1).
       - ctgInd: Category index for each stimulus. shape (nStim x 1).
-      - meanORmedian: Whether to compute 'mean' or 'median' for the estimate.
       - quantiles: Quantiles to use for the confidence intervals.
     ----------------
     Outputs:
@@ -556,8 +551,7 @@ def get_estimate_circular_statistics(estimates, ctgInd, quantiles=[0.16, 0.84]):
     for cl in np.unique(ctgInd):
         mask = (ctgInd == cl)
         estLevel = np.deg2rad(estimates[mask])  # Stimuli of the same category
-        # If estLev has even number of values, remove one, for pcirc to work
-        # right
+        # If estLev has even number of values, remove one, for pcirc to work right
         if len(estLevel) % 2 == 0:
             estLevel = estLevel[:-1]
         # Compute mean and median
@@ -578,13 +572,13 @@ def get_estimate_circular_statistics(estimates, ctgInd, quantiles=[0.16, 0.84]):
         highCIMean[cl] = estimatesMeans[cl] + np.percentile(circDiff, quantiles[1]*100)
     # Convert radiants to degrees
     statsDict = {
-        'estimateMean': torch.rad2deg(torch.tensor(estimatesMeans)),
-        'estimateMedian': torch.rad2deg(torch.tensor(estimatesMedians)),
-        'estimateSD': torch.rad2deg(torch.tensor(estimatesSD)),
-        'lowCIMedian': torch.rad2deg(torch.tensor(lowCIMedian)),
-        'highCIMedian': torch.rad2deg(torch.tensor(highCIMedian)),
-        'lowCIMean': torch.rad2deg(torch.tensor(lowCIMean)),
-        'highCIMean': torch.rad2deg(torch.tensor(highCIMean))
+        'estimateMean': torch.rad2deg(torch.tensor(estimatesMeans, dtype=torch.float32)),
+        'estimateMedian': torch.rad2deg(torch.tensor(estimatesMedians, dtype=torch.float32)),
+        'estimateSD': torch.rad2deg(torch.tensor(estimatesSD, dtype=torch.float32)),
+        'lowCIMedian': torch.rad2deg(torch.tensor(lowCIMedian, dtype=torch.float32)),
+        'highCIMedian': torch.rad2deg(torch.tensor(highCIMedian, dtype=torch.float32)),
+        'lowCIMean': torch.rad2deg(torch.tensor(lowCIMean, dtype=torch.float32)),
+        'highCIMean': torch.rad2deg(torch.tensor(highCIMean, dtype=torch.float32))
     }
     return statsDict
 
@@ -644,4 +638,5 @@ def sort_categories(ctgVal, ctgInd):
     _, ctgIndNew = torch.sort(sortedValInds)
     ctgIndSorted = ctgIndNew[ctgInd]
     return ctgValSorted, ctgIndSorted
+
 

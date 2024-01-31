@@ -710,8 +710,8 @@ class AMA_qmiso(AMA):
             sLevel = s[mask,:]  # Stimuli of the same category
             # CHECK THIS IS RUNNING CORRECTLY 28/12/2023
             sm = qr.projected_normal_sm_iso_batch(mu=sLevel, sigma=self.pixelSigma)
-            sCtgCov[cl,:,:] = qr.secondM_2_cov(secondM=sm,
-                                              mean=self.stimMean[cl,:])
+            cov = au.secondM_2_cov(secondM=sm, mean=self.stimMean[cl,:])
+            sCtgCov[cl,:,:] = cov.squeeze()
         return sCtgCov
 
 

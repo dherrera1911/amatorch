@@ -46,7 +46,7 @@ def plot_ellipse(mean, cov, ax, color='black'):
     ax.add_patch(ellipse)
 
 
-def plot_ellipse_set(mean, cov, ax, ctgVal, colorMap='viridis'):
+def plot_ellipse_set(mean, cov, ax, ctgVal, colorLims=None, colorMap='viridis'):
     """ Plot a set of ellipses, one for each category
     -----------------
     Arguments:
@@ -70,14 +70,16 @@ def plot_ellipse_set(mean, cov, ax, ctgVal, colorMap='viridis'):
     # Get color map
     cmap = plt.get_cmap(colorMap)
     # Get the color for each category
-    norm = Normalize(vmin=min(ctgVal), vmax=max(ctgVal))
+    if colorLims is None:
+        colorLims = [min(ctgVal), max(ctgVal)]
+    norm = Normalize(vmin=colorLims[0], vmax=colorLims[1])
     colors = cmap(norm(ctgVal))
     # Plot each ellipse
     for i in range(nCtg):
         plot_ellipse(mean=mean[i,:], cov=cov[i,:,:], ax=ax, color=colors[i])
 
 
-def response_scatter(ax, resp, ctgVal, colorMap='viridis'):
+def response_scatter(ax, resp, ctgVal, colorLims=None, colorMap='viridis'):
     """ Scatter plot of the responses to the stimuli, with color
     indicating the category value.
     -----------------
@@ -95,13 +97,15 @@ def response_scatter(ax, resp, ctgVal, colorMap='viridis'):
     else:
         cmap = colorMap
     # Get the color for each category
-    norm = Normalize(vmin=min(ctgVal), vmax=max(ctgVal))
+    if colorLims is None:
+        colorLims = [min(ctgVal), max(ctgVal)]
+    norm = Normalize(vmin=colorLims[0], vmax=colorLims[1])
     colors = cmap(norm(ctgVal))
     # Scatter plot
     ax.scatter(resp[:,0], resp[:,1], c=colors, s=40, alpha=0.5)
 
 
-def add_colorbar(ax, ctgVal, colorMap='viridis', label='', ticks=None,
+def add_colorbar(ax, ctgVal, colorLims=None, colorMap='viridis', label='', ticks=None,
                  orientation='vertical'):
     """
     Add a color bar to the axes based on the ctgVal array.
@@ -122,18 +126,20 @@ def add_colorbar(ax, ctgVal, colorMap='viridis', label='', ticks=None,
         cmap = colorMap
     # Get fig from ax
     fig = ax.get_figure()
-    norm = Normalize(vmin=min(ctgVal), vmax=max(ctgVal))
+    if colorLims is None:
+        colorLims = [min(ctgVal), max(ctgVal)]
+    norm = Normalize(vmin=colorLims[0], vmax=colorLims[1])
     sm = ScalarMappable(cmap=cmap, norm=norm)
     sm.set_array([])
     # Determine position of color bar based on orientation
     if orientation == 'horizontal':
         cax_pos = [0.28, 0.95, 0.60, 0.025]
     else:  # vertical
-        cax_pos = [0.90, 0.10, 0.03, 0.7]  # Adjust as needed
+        cax_pos = [0.96, 0.11, 0.03, 0.65]  # Adjust as needed
     cax = fig.add_axes(cax_pos)
     cbar = fig.colorbar(sm, cax=cax, ticks=ticks, orientation=orientation)
-    cbar.ax.tick_params(labelsize=5)
-    cbar.ax.set_title(label, loc='center', fontsize=22)
+    cbar.ax.tick_params(labelsize=24)
+    cbar.ax.set_title(label, loc='center', fontsize=24)
     cbar.ax.yaxis.set_label_coords(7, 1)
 
 
