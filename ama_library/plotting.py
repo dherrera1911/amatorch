@@ -1,10 +1,10 @@
 import numpy as np
 import torch
+import seaborn as sns
 import matplotlib.pyplot as plt
+from matplotlib import patches, colors, cm
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize
-import seaborn as sns
-from matplotlib import patches, colors, cm
 from ama_library import utilities as au
 import time
 
@@ -256,8 +256,8 @@ def plot_posterior(ax, posteriors, ctgVal=None, traces2plot=None,
         ax.axvline(x=trueVal, color='blue')
     ax.fill_between(ctgVal, ciPosterior[0,:], ciPosterior[1,:],
                       color='black', alpha=0.3)
-    ax.plot(ctgVal, np.transpose(tracePosteriors), color='red',
-             linewidth=0.2, alpha=0.3)
+    ax.plot(ctgVal, np.transpose(tracePosteriors), color='black',
+             linewidth=0.05, alpha=0.2)
     ax.plot(ctgVal, medianPosterior, color='black', linewidth=2)
 
 
@@ -284,7 +284,7 @@ def plot_posterior_neuron(ax, posteriorCtg, ctgInd, ctgVal=None,
     if trueVal is not None:
         ax.axvline(x=trueVal, color='blue')
     ax.fill_between(ctgVal, posteriorStats['lowCI'],
-                     posteriorStats['highCI'], color='black', alpha=0.3)
-    ax.plot(ctgVal, posteriorStats['estimateMedian'], color='red')
+                     posteriorStats['highCI'], color='black', alpha=0.2)
+    ax.plot(ctgVal, posteriorStats['estimateMedian'], color='black')
 
 

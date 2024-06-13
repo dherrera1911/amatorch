@@ -100,18 +100,15 @@ import scipy.io as spio
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
-import torch.nn as nn
-import torch.nn.functional as F
-from torch.utils.data import TensorDataset, DataLoader
 
 # <codecell>
 #### DOWNLOAD DISPARITY DATA
 ##UNCOMMENT_FOR_COLAB_START##
-#!mkdir data
-#!wget -O ./data/dspCtg.csv https://raw.githubusercontent.com/dherrera1911/accuracy_maximization_analysis/master/data/dspCtg.csv
-#!wget -O ./data/dspStim.csv https://raw.githubusercontent.com/dherrera1911/accuracy_maximization_analysis/master/data/dspStim.csv
-#!wget --no-check-certificate -O  ./data/dspVal.csv https://raw.githubusercontent.com/dherrera1911/accuracy_maximization_analysis/master/data/dspVal.csv
-#!wget --no-check-certificate -O  ./data/dspFilters.csv https://raw.githubusercontent.com/dherrera1911/accuracy_maximization_analysis/master/data/dspFilters.csv
+!mkdir data
+!wget -O ./data/dspCtg.csv https://raw.githubusercontent.com/dherrera1911/accuracy_maximization_analysis/master/data/dspCtg.csv
+!wget -O ./data/dspStim.csv https://raw.githubusercontent.com/dherrera1911/accuracy_maximization_analysis/master/data/dspStim.csv
+!wget --no-check-certificate -O  ./data/dspVal.csv https://raw.githubusercontent.com/dherrera1911/accuracy_maximization_analysis/master/data/dspVal.csv
+!wget --no-check-certificate -O  ./data/dspFilters.csv https://raw.githubusercontent.com/dherrera1911/accuracy_maximization_analysis/master/data/dspFilters.csv
 ##UNCOMMENT_FOR_COLAB_END##
 
 
@@ -209,15 +206,15 @@ plt.show()
 # <codecell>
 # FIRST WE NEED TO DOWNLOAD AND INSTALL GEOTORCH AND QUADRATIC RATIOS PACKAGES
 ##UNCOMMENT_FOR_COLAB_START##
-#!pip install geotorch
-#import geotorch
-#!pip install git+https://github.com/dherrera1911/quadratic_ratios.git
+!pip install geotorch
+import geotorch
+!pip install git+https://github.com/dherrera1911/quadratic_ratios.git
 ##UNCOMMENT_FOR_COLAB_END##
 
 # <codecell>
 # INSTALL THE AMA_LIBRARY PACKAGE FROM GITHUB
 ##UNCOMMENT_FOR_COLAB_START##
-#!pip install git+https://github.com/dherrera1911/accuracy_maximization_analysis.git
+!pip install git+https://github.com/dherrera1911/accuracy_maximization_analysis.git
 ##UNCOMMENT_FOR_COLAB_END##
 
 # <codecell>

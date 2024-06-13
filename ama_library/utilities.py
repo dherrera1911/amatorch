@@ -17,7 +17,7 @@ import time
 # This group of functions take an ama model, and some inputs
 # such as the loss function, and do the training loop.
 # Different types of training are available, such as training
-# the filters in pairs, or with multiple seeds
+# the filters in pairs, or from multiple seeds
 
 
 # Define loop function to train the model
@@ -60,6 +60,7 @@ def fit(nEpochs, model, trainDataLoader, lossFun, opt, scheduler=None,
     # TAKE THE TIME AND START LOOP
     start = time.time()
     if printProg:
+        # Print headers
         print("-"*72)
         print(f"{'Epoch':^5} | {'Train loss':^12} | {'Diff (e-3)':^10} | "
               f"{'Test loss':^12} | {'Diff (e-3)':^10} | {'Time (s)':^8}")
@@ -82,7 +83,7 @@ def fit(nEpochs, model, trainDataLoader, lossFun, opt, scheduler=None,
         if not sTst == None:
             tstLoss[epoch+1] = lossFun(model=model, s=sTst, ctgInd=ctgIndTst)
         tstDiff = tstLoss[epoch+1] - tstLoss[epoch]
-        # Print headers
+        # Print progress
         if printProg:
             print(f"{epoch+1:^5} | "
                   f"{trnLoss[epoch]:>12.3f} | "
@@ -510,7 +511,7 @@ def get_estimate_statistics(estimates, ctgInd, quantiles=torch.tensor([0.16, 0.8
     estimatesSD = torch.zeros(ctgInd.max()+1)
     lowCI = torch.zeros(ctgInd.max()+1)
     highCI = torch.zeros(ctgInd.max()+1)
-    quantiles = torch.tensor(quantiles)
+    quantiles = torch.as_tensor(quantiles)
     for cl in ctgInd.unique():
         mask = (ctgInd == cl)
         estLevel = estimates[mask]  # Stimuli of the same category
