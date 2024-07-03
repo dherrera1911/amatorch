@@ -13,7 +13,8 @@ setup(
       'numpy',
       'torch',
       'matplotlib',
-      'pycircstat'],
+      'pycircstat',
+      'nose'],
     # *strongly* suggested for sharing
     version='0.1',
     # The license can be anything you like
