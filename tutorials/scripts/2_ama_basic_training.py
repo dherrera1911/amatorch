@@ -27,7 +27,6 @@
 ##UNCOMMENT_FOR_COLAB_START##
 !pip install geotorch
 import geotorch
-!pip install git+https://github.com/dherrera1911/quadratic_ratios.git
 ##UNCOMMENT_FOR_COLAB_END##
 
 
