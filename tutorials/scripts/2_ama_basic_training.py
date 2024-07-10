@@ -145,7 +145,7 @@ plt.scatter(respClass2[:,0], respClass2[:,1], label=f'{ctgVal[indPlot2]} arcmin'
 plt.legend()
 plt.xlabel('Filter 1 response')
 plt.ylabel('Filter 2 response')
-plt.title('Responses to different stimuli')
+plt.title('Untrained filter response to two classes')
 fig = plt.gcf()
 fig.set_size_inches(6,6)
 plt.show()
@@ -284,6 +284,32 @@ plt.show()
 plt.plot(torch.arange(nEpochs+1), loss)
 plt.xlabel('Epoch')
 plt.ylabel('Loss')
+plt.show()
+
+
+# <markdowncell>
+# Now, lets compare the response distributions of the trained model
+# with the untrained model for the same two classes as before.
+# We expect that the response distributions are more separated after
+# training.
+
+# <codecell>
+resp = ama.get_responses(s=s).detach()
+
+indPlot1 = 5 # Index of the first class to plot (use same as stim plotted above)
+indPlot2 = 12  # Index of the second class to plot
+respClass1 = resp[ctgInd==indPlot1, :]  # Get responses of class 1
+respClass2 = resp[ctgInd==indPlot2, :]  # Get responses of class 2
+plt.scatter(respClass1[:,0], respClass1[:,1], label=f'{ctgVal[indPlot1]} arcmin',
+            color='green', alpha=0.5)
+plt.scatter(respClass2[:,0], respClass2[:,1], label=f'{ctgVal[indPlot2]} arcmin',
+            color='brown', alpha=0.5)
+plt.legend()
+plt.xlabel('Filter 1 response')
+plt.ylabel('Filter 2 response')
+plt.title('Trained filter response to two classes')
+fig = plt.gcf()
+fig.set_size_inches(6,6)
 plt.show()
 
 

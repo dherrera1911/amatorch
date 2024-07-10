@@ -215,6 +215,7 @@ import geotorch
 # <codecell>
 # INSTALL THE AMA_LIBRARY PACKAGE FROM GITHUB
 ##UNCOMMENT_FOR_COLAB_START##
+%%capture
 !pip install git+https://github.com/dherrera1911/accuracy_maximization_analysis.git
 ##UNCOMMENT_FOR_COLAB_END##
 
@@ -452,15 +453,15 @@ plt.title('Fitted Gaussians')
 ap.plot_ellipse_set(mean=ama.respMean, cov=ama.respCov, ax=ax,
                     ctgVal=ctgVal, colorMap='jet')
 # Add color legend
-ap.add_colorbar(ax=ax, ctgVal=ctgVal, colorMap='jet', label='Disparity (arcmin)')
+ap.add_colorbar(ax=ax, ctgVal=ctgVal, colorMap='jet', label='Disparity \n (arcmin)')
 # Set limits
-ax.setxlim(-1, 1)
+ax.set_xlim(-1, 1)
 ax.set_ylim(-1, 1)
 ax.set_xticks([-1, 0, 1])
 ax.set_yticks([-1, 0, 1])
 # Show figure
 fig = plt.gcf()
-fig.set_size_inches(8,6)
+fig.set_size_inches(9,9)
 plt.show()
 
 
