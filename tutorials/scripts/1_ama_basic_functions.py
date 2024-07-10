@@ -104,6 +104,7 @@ import matplotlib.pyplot as plt
 # <codecell>
 #### DOWNLOAD DISPARITY DATA
 ##UNCOMMENT_FOR_COLAB_START##
+%%capture
 !mkdir data
 !wget -O ./data/dspCtg.csv https://raw.githubusercontent.com/dherrera1911/accuracy_maximization_analysis/master/data/dspCtg.csv
 !wget -O ./data/dspStim.csv https://raw.githubusercontent.com/dherrera1911/accuracy_maximization_analysis/master/data/dspStim.csv
@@ -206,6 +207,7 @@ plt.show()
 # <codecell>
 # FIRST WE NEED TO DOWNLOAD AND INSTALL GEOTORCH AND QUADRATIC RATIOS PACKAGES
 ##UNCOMMENT_FOR_COLAB_START##
+%%capture
 !pip install geotorch
 import geotorch
 ##UNCOMMENT_FOR_COLAB_END##
@@ -452,10 +454,10 @@ ap.plot_ellipse_set(mean=ama.respMean, cov=ama.respCov, ax=ax,
 # Add color legend
 ap.add_colorbar(ax=ax, ctgVal=ctgVal, colorMap='jet', label='Disparity (arcmin)')
 # Set limits
-plt.xlim(-1, 1)
-plt.ylim(-1, 1)
-plt.xticks([-1, 0, 1])
-plt.yticks([-1, 0, 1])
+ax.setxlim(-1, 1)
+ax.set_ylim(-1, 1)
+ax.set_xticks([-1, 0, 1])
+ax.set_yticks([-1, 0, 1])
 # Show figure
 fig = plt.gcf()
 fig.set_size_inches(8,6)

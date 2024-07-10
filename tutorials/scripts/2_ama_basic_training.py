@@ -14,6 +14,7 @@
 # <codecell>
 #### DOWNLOAD DISPARITY DATA
 ##UNCOMMENT_FOR_COLAB_START##
+%%capture
 !mkdir data
 !wget -O ./data/dspCtg.csv https://raw.githubusercontent.com/dherrera1911/accuracy_maximization_analysis/master/data/dspCtg.csv
 !wget -O ./data/dspStim.csv https://raw.githubusercontent.com/dherrera1911/accuracy_maximization_analysis/master/data/dspStim.csv
@@ -25,6 +26,7 @@
 # <codecell>
 # FIRST WE NEED TO DOWNLOAD AND INSTALL GEOTORCH AND QUADRATIC RATIOS PACKAGES
 ##UNCOMMENT_FOR_COLAB_START##
+%%capture
 !pip install geotorch
 import geotorch
 ##UNCOMMENT_FOR_COLAB_END##
@@ -33,6 +35,7 @@ import geotorch
 # <codecell>
 # INSTALL THE AMA_LIBRARY PACKAGE FROM GITHUB
 ##UNCOMMENT_FOR_COLAB_START##
+%%capture
 !pip install git+https://github.com/dherrera1911/accuracy_maximization_analysis.git
 ##UNCOMMENT_FOR_COLAB_END##
 
