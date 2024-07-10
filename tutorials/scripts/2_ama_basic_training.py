@@ -88,7 +88,6 @@ ama = cl.AMA_emp(sAll=s, ctgInd=ctgInd, nFilt=nFilt,
 # <markdowncell>
 # The model is initialized with random filters. Let's visualize the
 # random filters.
-# the optimal filters that we put into the model.
 #
 
 # <codecell>
