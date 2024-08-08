@@ -1,4 +1,4 @@
-# ama_library
+# Accuracy Maximization Analysis in Python
 
 The package `ama_library` is a PyTorch implementation of the model
 "Accuracy Maximization Analysis (AMA)", that learns optimal local
