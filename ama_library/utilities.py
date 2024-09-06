@@ -308,7 +308,8 @@ def kl_loss(model, s, ctgInd):
     """
     logProbs = F.log_softmax(model.get_ll(s), dim=1)
     nStim = s.shape[0]
-    loss = -torch.mean(logProbs[torch.arange(nStim), ctgInd])
+    correctClassLogProbs = logProbs[torch.arange(nStim), ctgInd]
+    loss = -torch.mean(correctClassLogProbs)
     return loss
 
 

@@ -106,7 +106,7 @@ def response_scatter(ax, resp, ctgVal, colorLims=None, colorMap='viridis'):
 
 
 def add_colorbar(ax, ctgVal, colorLims=None, colorMap='viridis', label='', ticks=None,
-                 orientation='vertical'):
+                 orientation='vertical', fontSize=24):
     """
     Add a color bar to the axes based on the ctgVal array.
     -----------------
@@ -133,13 +133,15 @@ def add_colorbar(ax, ctgVal, colorLims=None, colorMap='viridis', label='', ticks
     sm.set_array([])
     # Determine position of color bar based on orientation
     if orientation == 'horizontal':
-        cax_pos = [0.28, 0.95, 0.60, 0.025]
+        #cax_pos = [0.28, 0.95, 0.60, 0.025]
+        cax_pos = [0.28, 1, 0.60, 0.025]
     else:  # vertical
-        cax_pos = [0.96, 0.11, 0.03, 0.65]  # Adjust as needed
+        #cax_pos = [0.96, 0.11, 0.03, 0.65]  # Adjust as needed
+        cax_pos = [0.98, 0.11, 0.03, 0.65]  # Adjust as needed
     cax = fig.add_axes(cax_pos)
     cbar = fig.colorbar(sm, cax=cax, ticks=ticks, orientation=orientation)
-    cbar.ax.tick_params(labelsize=24)
-    cbar.ax.set_title(label, loc='center', fontsize=24)
+    cbar.ax.tick_params(labelsize=fontSize)
+    cbar.ax.set_title(label, loc='center', fontsize=fontSize)
     cbar.ax.yaxis.set_label_coords(7, 1)
 
 
@@ -175,9 +177,15 @@ def plot_covariance_values(axes, covariance, xVal=None, color='black',
             if i < nAxes[0] and j < nAxes[1]:
                 # Extract the (i,j)-th element from each covariance matrix
                 elementValues = covariance[:, i, j]
+
                 # Plot how this element changes as a function of k
-                scatter = axes[i, j].scatter(xVal, elementValues, color=color,
-                                            label=label, s=size)
+                if isinstance(color, str):
+                    scatter = axes[i, j].scatter(xVal, elementValues, color=color,
+                                                label=label, s=size)
+                else:
+                    scatter = axes[i, j].scatter(xVal, elementValues, c=xVal,
+                                                cmap=color, label=label, s=size)
+
                 # Draw horizontal line through 0
                 axes[i, j].axhline(y=0, color='k', linestyle='--', linewidth=0.5)
                 # Remove x axis labels if not last row
@@ -262,7 +270,7 @@ def plot_posterior(ax, posteriors, ctgVal=None, traces2plot=None,
 
 
 def plot_posterior_neuron(ax, posteriorCtg, ctgInd, ctgVal=None,
-                    trueVal=None, quantiles=[0.16, 0.84]):
+                    trueVal=None, quantiles=[0.16, 0.84], meanOrMedian='median'):
     """ Plot the posterior of one of the classes as a function of
     the class of the presented stimulus.
     -----------------
@@ -280,11 +288,17 @@ def plot_posterior_neuron(ax, posteriorCtg, ctgInd, ctgVal=None,
     # other classes are shown
     posteriorStats = au.get_estimate_statistics(posteriorCtg, ctgInd,
                                                quantiles=quantiles)
-    # Plot the posteriors
+    # Plot the true value
     if trueVal is not None:
-        ax.axvline(x=trueVal, color='blue')
-    ax.fill_between(ctgVal, posteriorStats['lowCI'],
-                     posteriorStats['highCI'], color='black', alpha=0.2)
-    ax.plot(ctgVal, posteriorStats['estimateMedian'], color='black')
+        ax.axvline(x=trueVal, color='grey', linestyle='--')
+    # Sort the ctgVal values and statistics
+    ctgValSorted, sortInd = torch.sort(ctgVal)
+    # Plot the posteriors
+    ax.fill_between(ctgValSorted, posteriorStats['lowCI'][sortInd],
+                     posteriorStats['highCI'][sortInd], color='black', alpha=0.2)
+    if meanOrMedian == 'mean':
+        ax.plot(ctgValSorted, posteriorStats['estimateMean'][sortInd], color='black')
+    else:
+        ax.plot(ctgValSorted, posteriorStats['estimateMedian'][sortInd], color='black')
 
 

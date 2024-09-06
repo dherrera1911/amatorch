@@ -158,14 +158,17 @@ class AMA(ABC, nn.Module):
             - fNew: Matrix with the new filters as rows. The new number of filters
                 doesn't need to match the old number. (nFiltTrain x nDim)
         """
+
         # Remove parametrization so we can change the filters
         if parametrize.is_parametrized(self, "f"):
             parametrize.remove_parametrizations(self, "f", leave_parametrized=True)
+
         # Model parameters. Important to clone fNew, otherwise geotorch
         # modifies the original
         self.f = nn.Parameter(fNew.clone().to(self.device))
         geotorch.sphere(self, "f")
         self.f = fNew.to(self.device)
+
         # If number of trainable filters changed, update required params
         if self.nFiltTrain != fNew.shape[0]:
             self.nFiltTrain = fNew.shape[0]
