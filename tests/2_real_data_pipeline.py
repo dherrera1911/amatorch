@@ -39,12 +39,12 @@ samplesPerStim = 5
 respNoiseVar = torch.tensor(0.003)
 pixelCov = torch.tensor(0.005)
 
-#ama = cl.AMA_emp(sAll=s, ctgInd=ctgInd, nFilt=2, respNoiseVar=respNoiseVar,
-#                 pixelCov=pixelCov, ctgVal=ctgVal,
-#                 samplesPerStim=samplesPerStim, nChannels=2)
+ama = cl.AMA_emp(sAll=s, ctgInd=ctgInd, nFilt=2, respNoiseVar=respNoiseVar,
+                 pixelCov=pixelCov, ctgVal=ctgVal,
+                 samplesPerStim=samplesPerStim, nChannels=2)
 
-ama = cl.AMA_qmiso(sAll=s, ctgInd=ctgInd, nFilt=2, respNoiseVar=respNoiseVar,
-                 pixelVar=pixelCov, ctgVal=ctgVal)
+#ama = cl.AMA_qmiso(sAll=s, ctgInd=ctgInd, nFilt=2, respNoiseVar=respNoiseVar,
+#                 pixelVar=pixelCov, ctgVal=ctgVal)
 
 
 ##############
