@@ -5,7 +5,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.utils.parametrize as parametrize
 from torch.distributions.multivariate_normal import MultivariateNormal
-import geotorch
 from ama_library import utilities as au
 import time
 
@@ -60,7 +59,7 @@ class AMA(ABC, nn.Module):
         fInit = F.normalize(fInit, p=2, dim=1)
         # Model parameters
         self.f = nn.Parameter(fInit)
-        geotorch.sphere(self, "f")
+        parametrize.register_parametrization(self, "f", Sphere())
         # Attribute with fixed (non-trainable) filters
         self.fFixed = torch.tensor([], device=device)  # DEVICE
         # Assign handy variables
@@ -159,14 +158,7 @@ class AMA(ABC, nn.Module):
                 doesn't need to match the old number. (nFiltTrain x nDim)
         """
 
-        # Remove parametrization so we can change the filters
-        if parametrize.is_parametrized(self, "f"):
-            parametrize.remove_parametrizations(self, "f", leave_parametrized=True)
-
-        # Model parameters. Important to clone fNew, otherwise geotorch
-        # modifies the original
-        self.f = nn.Parameter(fNew.clone().to(self.device))
-        geotorch.sphere(self, "f")
+        # Model parameters
         self.f = fNew.to(self.device)
 
         # If number of trainable filters changed, update required params
@@ -594,178 +586,15 @@ class AMA_emp(AMA):
             covariance_matrix=self.respNoiseCov)
 
 
-#####################
-#####################
-# CHILD CLASS, ISOTROPIC
-#####################
-#####################
+# Define the sphere constraint
+class Sphere(nn.Module):
+    def forward(self, X):
+        """ Function to parametrize sphere vector S """
+        # X is any vector
+        S = X / torch.linalg.vector_norm(X, dim=1, keepdim=True) # Unit norm vector
+        return S
 
-#class AMA_qmiso(AMA):
-#    def __init__(self, sAll, ctgInd, nFilt=2, respNoiseVar=torch.tensor(0.02),
-#            pixelVar=torch.tensor(0), ctgVal=None, printWarnings=False, device='cpu'):
-#        """
-#        -----------------
-#        Isotropic AMA class
-#        -----------------
-#        This variant of AMA adds isotropic noise to simuli and does normalization.
-#        It uses analytic formulas to estimate stimulus mean and covariance.
-#        """
-#        self.device = device
-#        # Set the number of channels, that are normalized separately
-#        nDim = sAll.shape[1]
-#        nClasses = torch.unique(ctgInd).size()[0]  # Number of classes
-#        # Initialize parent class
-#        super().__init__(nDim=nDim, nClasses=nClasses, nFilt=nFilt,
-#                respNoiseVar=respNoiseVar, ctgVal=ctgVal, printWarnings=printWarnings,
-#                device=device)
-#        # Make noise generator
-#        pixelVar = torch.as_tensor(pixelVar)
-#        self.pixelSigma = torch.sqrt(pixelVar).to(device)
-#        # Make the noise generator for the stimuli
-#        pixelCov = torch.eye(sAll.shape[1], device=self.device) * pixelVar
-#        self.stimNoiseGen = MultivariateNormal(loc=torch.zeros(sAll.shape[1],
-#                                                               device=self.device),
-#                                               covariance_matrix=pixelCov)
-#        ### Compute the conditional statistics of the stimuli
-#        # CHECK THAT THESE FUNCTIONS WORK
-#        self.stimMean = self.compute_norm_stim_mean(s=sAll, ctgInd=ctgInd)
-#        self.stimCov = self.compute_norm_stim_cov(s=sAll, ctgInd=ctgInd)
-#        ### Compute the conditional statistics of the responses
-#        self.respMean = self.compute_response_mean()
-#        self.respCovNoiseless = self.compute_response_cov()  # without filter noise
-#        self.respCov = self.respCovNoiseless + \
-#            self.respNoiseCov.repeat(self.nClasses, 1, 1)  # with filter noise
-#
-#
-#    def preprocess(self, s):
-#        """ Preprocess stimuli by adding noise and normalizing to
-#        unit norm.
-#        -----------------
-#        Arguments:
-#        -----------------
-#            - s: Stimulus matrix. (nStim x nDim)
-#        -----------------
-#        Output:
-#        -----------------
-#            - sProcessed: Processed stimuli. (nStim x nDim)
-#        """
-#        # Add noise to the stimuli
-#        noiseSamples = self.stimNoiseGen.sample([s.shape[0]])
-#        sNoisy = s + noiseSamples
-#        # Normalize the stimuli
-#        sProcessed = au.normalize_stimuli_channels(s=sNoisy)
-#        return sProcessed
-#
-#
-#    ########################
-#    # STATISTICS COMPUTING
-#    ########################
-#
-#
-#    def compute_norm_stim_mean(self, s, ctgInd):
-#        """ Compute the mean of the noisy normalized stimuli across the
-#        dataset.
-#        -----------------
-#        Arguments:
-#        -----------------
-#            - s: Input stimuli. (nStim x nDim)
-#            - nc: Non-centrality parameter (nStim)
-#            - ctgInd: Category index of each stimulus. (nStim)
-#        -----------------
-#        Outputs:
-#        -----------------
-#            - stimMean: Mean of the noisy normalized stimuli for each category.
-#                (nClasses x nDim)
-#        """
-#        nClasses = torch.unique(ctgInd).size()[0]
-#        sCtgMean = torch.zeros(nClasses, self.nDim, device=s.device)
-#        for cl in range(nClasses):
-#            mask = (ctgInd == cl)
-#            sLevel = s[mask,:]  # Stimuli of the same category
-#            nStim = sLevel.size()[0]
-#            # CHECK THIS IS RUNNING CORRECTLY 28/12/2023
-#            sMean = qr.projected_normal_mean_iso(mu=s, sigma=self.pixelSigma)
-#            sCtgMean[cl,:] = eo.reduce(sMean, 'n b -> b', 'mean')
-#        return sCtgMean
-#
-#
-#    def compute_norm_stim_cov(self, s, ctgInd, sameAsInit=True):
-#        """ Compute the covariance across the stimulus dataset for the noisy
-#        normalized stimuli. Uses some of the noise model properties
-#        stored as attributes of the class.
-#        -----------------
-#        Arguments:
-#        -----------------
-#            - s: Input stimuli. (nStim x nDim)
-#            - ctgInd: Category index of each stimulus. (nStim)
-#        -----------------
-#        Outputs:
-#        -----------------
-#            - stimCov: Covariance matrices of the noisy normalized stimuli
-#                for each category. (nClasses x nDim x nDim)
-#        """
-#        nClasses = torch.unique(ctgInd).size()[0]
-#        sCtgCov = torch.zeros(nClasses, self.nDim, self.nDim, device=s.device)
-#        for cl in range(nClasses):
-#            mask = (ctgInd == cl)
-#            sLevel = s[mask,:]  # Stimuli of the same category
-#            # CHECK THIS IS RUNNING CORRECTLY 28/12/2023
-#            sm = qr.projected_normal_sm_iso_batch(mu=sLevel, sigma=self.pixelSigma)
-#            cov = au.secondM_2_cov(secondM=sm, mean=self.stimMean[cl,:])
-#            sCtgCov[cl,:,:] = cov.squeeze()
-#        return sCtgCov
-#
-#
-#    def compute_response_mean(self):
-#        """ Compute the mean of the filter responses to the noisy stimuli
-#        for each class. Note that this are the means without added noise.
-#        -----------------
-#        Outputs:
-#        -----------------
-#            - respMean: Mean responses of each model filter to the noisy normalized
-#                stimuli of each class. (nClasses x nFilt)
-#        """
-#        fAll = self.all_filters()
-#        respMean = torch.einsum('cd,kd->ck', self.stimMean, fAll)
-#        return respMean
-#
-#
-#    def compute_response_cov(self):
-#        """ Compute the mean of the filter responses to the noisy stimuli for each class.
-#        Note that this are the noiseless filters.
-#        -----------------
-#        Outputs:
-#        -----------------
-#            - respCov: Covariance of filter responses to the noisy normalized
-#                stimuli of each class. (nClasses x nFilt x nFilt)
-#        """
-#        fAll = self.all_filters()
-#        ### Simplest method, only works for broadband normalization
-#        respCov = torch.einsum('kd,cdb,mb->ckm', fAll, self.stimCov, fAll)
-#        # Remove numerical errors that make asymmetric
-#        respCov = (respCov + respCov.transpose(1,2))/2
-#        return respCov
-#
-#
-#    def update_response_statistics(self):
-#        """ Update (in place) the conditional response means and covariances
-#        to match the current object filters
-#        """
-#        # Get all filters (fixed and trainable)
-#        fAll = self.all_filters()
-#        self.nFiltTrain = self.f.shape[0]
-#        self.nFiltAll = fAll.shape[0]
-#        # If new filters were manually added, expand the response noise covariance
-#        self.respNoiseCov = torch.eye(self.nFiltAll, device=self.device) * \
-#            self.respNoiseVar
-#        # Update covariances, size nClasses*nFiltAll*nFiltAll
-#        # Assign precomputed valeus, if same as initialization
-#        self.respMean = self.compute_response_mean()
-#        self.respCovNoiseless = self.compute_response_cov()
-#        # Add response noise to the stimulus-induced variability of responses
-#        self.respCov = self.respCovNoiseless + \
-#            self.respNoiseCov.repeat(self.nClasses, 1, 1)
-#        self.respNoiseGen = MultivariateNormal(
-#            loc=torch.zeros(self.nFiltAll, device=self.device),
-#            covariance_matrix=self.respNoiseCov)
-#
+    def right_inverse(self, S):
+        """ Function to assign to parametrization""" 
+        return S * S.shape[0]
+
