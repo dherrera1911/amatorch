@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "amapy"
+requires-python = ">= 3.8, <3.11"
+version = "0.1.0"
+license = {text = "MIT License"}
+authors = [
+  {name = "Daniel Herrera-Esposito", email = "dherrera1911@gmail.com"}
+]
+dependencies = [
+  "numpy",
+  "torch",
+  "matplotlib",
+  "pycircstat",
+  "nose",
+  "decorator",
+  "scipy",
+  "pandas",
+  "seaborn",
+]
+description = "A library for learning optimal linear filters given a supervised task"
+
+[project.urls]
+Repository = "https://github.com/dherrera1911/accuracy_maximization_analysis"
+
+[tool.setuptools]
+packages = ["ama_library"]
+

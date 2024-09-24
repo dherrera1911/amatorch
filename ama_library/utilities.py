@@ -2,7 +2,6 @@ import numpy as np
 import torch
 from torch import optim
 import torch.nn.functional as F
-from scipy.stats import circmean, circstd
 import pycircstat as pcirc
 import time
 
