@@ -15,26 +15,25 @@ import time
 #####################
 
 class AMA(ABC, nn.Module):
-    def __init__(self, nDim, nClasses, nFilt=2, respNoiseVar=torch.tensor(0.02),
-            ctgVal=None, printWarnings=True, device='cpu'):
-        """ AMA model object.
+    def __init__(self, n_dim, nClasses, nFilt=2, respNoiseVar=torch.tensor(0.02),
+            ctgVal=None, device='cpu'):
+        """ Abstract AMA parent class.
         -----------------
         Arguments:
         -----------------
-          - sAll: Input stimuli. (nStim x nDim)
+          - sAll: Input stimuli. (nStim x n_dim)
           - ctgInd: Category index of each stimulus. (nStim)
           - nFilt: Number of filters to train
           - respNoiseVar: Variance of filter response noise. Scalar
           - ctgVal: Value of the latent variable corresponding to each category.
               Defaults to equispaced points in [-1, 1].
               exact results. Defaults to 'post-filter'
-          - printWarnings: Boolean indicating whether to print warnings.
           - device: Device to use. Defaults to 'cpu'
         -----------------
         Attributes:
         -----------------
-          - f: Trainable filters. (nFiltTrain x nDim)
-          - fFixed: Fixed filters. (nFiltFixed x nDim)
+          - f: Trainable filters. (nFiltTrain x n_dim)
+          - fFixed: Fixed filters. (nFiltFixed x n_dim)
           - ctgVal: Value of the latent variable corresponding to each category
           - stimMean: Mean of the stimuli for each class
           - stimCov: Covariance of the stimuli for each class
@@ -46,16 +45,15 @@ class AMA(ABC, nn.Module):
           - respNoiseGen: Response noise generator
           - nFiltTrain: Number of trainable filters
           - nFiltAll: Number of filters (trainable + fixed)
-          - nDim: Number of dimensions of inputs
+          - n_dim: Number of dimensions of inputs
           - nClasses: Number of classes
           - printWarnings: Boolean indicating whether to print warnings
           - device: Device to use
         """
         super().__init__()
-        self.printWarnings = printWarnings
         self.device = device
         ### Make initial random filters
-        fInit = torch.randn(nFilt, nDim, device=device)  # DEVICE
+        fInit = torch.randn(nFilt, n_dim, device=device)  # DEVICE
         fInit = F.normalize(fInit, p=2, dim=1)
         # Model parameters
         self.f = nn.Parameter(fInit)
@@ -65,7 +63,7 @@ class AMA(ABC, nn.Module):
         # Assign handy variables
         self.nFiltTrain = self.f.shape[0]  # Number of trainable filters
         self.nFiltAll = self.nFiltTrain  # Number of filters including fixed filters
-        self.nDim = self.f.shape[1]  # Number of dimensions
+        self.n_dim = self.f.shape[1]  # Number of dimensions
         self.nClasses = nClasses # Number of classes
         # If no category values given, assign equispaced values in [-1,1]
         if ctgVal is None:
@@ -92,7 +90,7 @@ class AMA(ABC, nn.Module):
         -----------------
         Output:
         -----------------
-            - fAll: Tensor with all filters. (nFiltAll x nDim)
+            - fAll: Tensor with all filters. (nFiltAll x n_dim)
         """
         return torch.cat((self.fFixed, self.f))
 
@@ -155,7 +153,7 @@ class AMA(ABC, nn.Module):
         Arguments:
         -----------------
             - fNew: Matrix with the new filters as rows. The new number of filters
-                doesn't need to match the old number. (nFiltTrain x nDim)
+                doesn't need to match the old number. (nFiltTrain x n_dim)
         """
 
         # Model parameters
@@ -176,7 +174,7 @@ class AMA(ABC, nn.Module):
         """ Re-initialize the trainable filters to random values.
         RESPONSE STATISTICS NEED TO BE UPDATED MANUALLY AFTER THIS FUNCTION.
         """
-        fRandom = torch.randn(self.nFiltTrain, self.nDim)
+        fRandom = torch.randn(self.nFiltTrain, self.n_dim)
         fRandom = F.normalize(fRandom, p=2, dim=1)
         self.assign_filter_values(fNew=fRandom)
 
@@ -198,7 +196,7 @@ class AMA(ABC, nn.Module):
         -----------------
         Arguments:
         -----------------
-            - fFixed: Te tensor with the new filters. (nFilt x nDim)
+            - fFixed: Te tensor with the new filters. (nFilt x n_dim)
         """
         self.fFixed = fFixed.clone().to(self.device)
 
@@ -212,7 +210,7 @@ class AMA(ABC, nn.Module):
             - nFiltNew: number of new fiters to add
         """
         # Initialize new random filters and set length to 1 
-        fNew = F.normalize(torch.randn(nFiltNew, self.nDim, device=self.device),
+        fNew = F.normalize(torch.randn(nFiltNew, self.n_dim, device=self.device),
                            p=2, dim=1)
         fOld = self.f.detach().clone()
         f = torch.cat((fOld, fNew))  # Concatenate old and new filters
@@ -236,7 +234,7 @@ class AMA(ABC, nn.Module):
         -----------------
         Arguments:
         -----------------
-            - s: stimulus matrix for which to compute posteriors. (nStim x nDim)
+            - s: stimulus matrix for which to compute posteriors. (nStim x n_dim)
             - addStimNoise: Logical that indicates whether to add noise to
                 the input stimuli s. Added noise has the characteristics stored
                 in the class.
@@ -268,7 +266,7 @@ class AMA(ABC, nn.Module):
         -----------------
         Arguments:
         -----------------
-            - s: stimulus matrix for which to compute posteriors. (nStim x nDim)
+            - s: stimulus matrix for which to compute posteriors. (nStim x n_dim)
             - addRespNoise: Logical that indicates whether to add noise to the
                 filter responses.
         -----------------
@@ -291,7 +289,7 @@ class AMA(ABC, nn.Module):
         -----------------
         Arguments:
         -----------------
-            - s: stimulus matrix for which to compute posteriors. (nStim x nDim)
+            - s: stimulus matrix for which to compute posteriors. (nStim x n_dim)
             - addRespNoise: Logical that indicates whether to add noise to the
                 filter responses.
         -----------------
@@ -314,7 +312,7 @@ class AMA(ABC, nn.Module):
         -----------------
         Arguments:
         -----------------
-            - s: stimulus matrix for which to compute posteriors. (nStim x nDim)
+            - s: stimulus matrix for which to compute posteriors. (nStim x n_dim)
             - method4est: Method to use for estimating the latent variable.
             - addRespNoise: Logical that indicates whether to add noise to the
                 filter responses.
@@ -337,7 +335,7 @@ class AMA(ABC, nn.Module):
         -----------------
         Arguments:
         -----------------
-            - resp: Matrix of filter responses. (nStim x nDim)
+            - resp: Matrix of filter responses. (nStim x n_dim)
         -----------------
         Output:
         -----------------
@@ -416,7 +414,7 @@ class AMA(ABC, nn.Module):
 class AMA_emp(AMA):
     def __init__(self, sAll, ctgInd, nFilt=2, respNoiseVar=torch.tensor(0.02),
             pixelCov=torch.tensor(0), ctgVal=None, samplesPerStim=1, nChannels=1,
-            printWarnings=False, device='cpu'):
+            device='cpu'):
         """
         -----------------
         Empirical AMA class
@@ -429,12 +427,11 @@ class AMA_emp(AMA):
         self.device = device
         # Set the number of channels, that are normalized separately
         self.nChannels = nChannels
-        nDim = sAll.shape[1]
+        n_dim = sAll.shape[1]
         nClasses = torch.unique(ctgInd).size()[0]  # Number of classes
         # Initialize parent class
-        super().__init__(nDim=nDim, nClasses=nClasses, nFilt=nFilt,
-                respNoiseVar=respNoiseVar, ctgVal=ctgVal, printWarnings=printWarnings,
-                device=device)
+        super().__init__(n_dim=n_dim, nClasses=nClasses, nFilt=nFilt,
+                respNoiseVar=respNoiseVar, ctgVal=ctgVal, device=device)
         ### Make noise generator
         # Turn noise parameters into tensors in device, and if needed convert
         # scalar into matrix
@@ -471,11 +468,11 @@ class AMA_emp(AMA):
         -----------------
         Arguments:
         -----------------
-            - s: Stimulus matrix. (nStim x nDim)
+            - s: Stimulus matrix. (nStim x n_dim)
         -----------------
         Output:
         -----------------
-            - sProcessed: Processed stimuli. (nStim x nDim)
+            - sProcessed: Processed stimuli. (nStim x n_dim)
         """
         # Add noise to the stimuli
         noiseSamples = self.stimNoiseGen.sample([s.shape[0]])
@@ -496,13 +493,13 @@ class AMA_emp(AMA):
         -----------------
         Arguments:
         -----------------
-            - s: Input PREPROCESED stimuli. (nStim x nDim)
+            - s: Input PREPROCESED stimuli. (nStim x n_dim)
             - ctgInd: Category index of each stimulus. (nStim)
         -----------------
         Outputs:
         -----------------
             - stimMean: Mean of the noisy normalized stimuli for each category.
-                (nClasses x nDim)
+                (nClasses x n_dim)
         """
         # Compute the mean of noisy normalized stimuli for each category
         stimMean = au.category_means(s=s, ctgInd=ctgInd)
@@ -516,18 +513,15 @@ class AMA_emp(AMA):
         -----------------
         Arguments:
         -----------------
-            - s: Input PREPROCESSED stimuli. (nStim x nDim)
+            - s: Input PREPROCESSED stimuli. (nStim x n_dim)
             - ctgInd: Category index of each stimulus. (nStim)
         -----------------
         Outputs:
         -----------------
             - stimCov: Mean of the noisy normalized stimuli for each category.
-                (nClasses x nDim)
+                (nClasses x n_dim)
         """
         stimSecondM = au.category_secondM(s=s, ctgInd=ctgInd)
-        if self.printWarnings:
-            print('''Warning: Response covariance updating is assuming
-                    response means are already updated''')
         stimCov = au.secondM_2_cov(secondM=stimSecondM, mean=self.stimMean)
         return stimCov
 
