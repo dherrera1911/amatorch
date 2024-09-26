@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from matplotlib import patches, colors, cm
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize
-from ama_library import utilities as au
+from amatorch import utilities as au
 import time
 
 

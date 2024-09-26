@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.utils.parametrize as parametrize
 from torch.distributions.multivariate_normal import MultivariateNormal
-from ama_library import utilities as au
+from amatorch import utilities as au
 import time
 
 #####################
