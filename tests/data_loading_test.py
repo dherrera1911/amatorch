@@ -15,4 +15,5 @@ def test_disparity_data_loading():
     assert isinstance(data['stimuli'], torch.Tensor)
     assert isinstance(data['labels'], torch.Tensor)
     assert isinstance(data['values'], torch.Tensor)
+    assert data['stimuli'].dim() == 3
 

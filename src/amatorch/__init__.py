@@ -1,5 +1,7 @@
 # __init__.py
-from .ama_class import *
-from .utilities import *
-from .plotting import *
+from . import ama_class
+from . import utilities
+from . import plotting
 from . import data
+from . import normalization
+from . import optim

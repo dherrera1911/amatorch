@@ -18,6 +18,10 @@ def disparity_data():
     - dict: A dictionary containing the loaded stimuli, labels, and values.
     """
     data_dir = FILES / 'disparity'
-    return load_data(data_dir=data_dir)
+    data = load_data(data_dir=data_dir)
+    n_channels = 2
+    n_pixels = 26
+    data['stimuli'] = data['stimuli'].reshape(-1, n_channels, n_pixels)
+    return data
 
 

@@ -2,7 +2,6 @@ import numpy as np
 import torch
 from torch import optim
 import torch.nn.functional as F
-import pycircstat as pcirc
 import time
 
 

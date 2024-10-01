@@ -1,5 +1,5 @@
 ##################
-#
+
 # TESTS THAT THE AMA CLASS INITIALIZES AND TRAINS
 # FOR THE RELEASE BEFORE REFACTORING
 #
@@ -9,13 +9,11 @@ import pytest
 import torch
 from torch.utils.data import TensorDataset, DataLoader
 import amatorch.ama_class as cl
-import amatorch.utilities as au
+import amatorch.optim as optim
 from amatorch.data import disparity_data
+import amatorch.utilities as au
 
 # Initialize the AMA class
-SAMPLES_PER_STIM = 5
-RESP_NOISE_VAR = torch.tensor(0.003)
-PIXEL_COV = torch.tensor(0.005)
 N_EPOCHS = 10
 LR = 0.05
 LR_STEP = 5
@@ -23,7 +21,7 @@ LR_GAMMA = 0.5
 BATCH_SIZE = 512
 
 ######## TEST THAT AMA RUNS ########
-def test_ama_runs():
+def test_training():
 
     # Load the data
     data_dict = disparity_data()
@@ -31,15 +29,11 @@ def test_ama_runs():
     labels = data_dict['labels']
     values = data_dict['values']
 
-    ama = cl.AMA_emp(
-      sAll=stimuli,
-      ctgInd=labels,
-      nFilt=2,
-      respNoiseVar=RESP_NOISE_VAR,
-      pixelCov=PIXEL_COV,
-      ctgVal=values,
-      samplesPerStim=SAMPLES_PER_STIM,
-      nChannels=2
+    ama = cl.AMAGauss(
+      stimuli=stimuli,
+      labels=labels,
+      n_filters=2,
+      values=values,
     )
 
     # Train the model
@@ -56,14 +50,14 @@ def test_ama_runs():
     )
 
     # Fit model
-    loss, tstLoss, elapsedTimes = au.fit(
+    loss, tstLoss, elapsedTimes = optim.fit(
       nEpochs=N_EPOCHS, model=ama, trainDataLoader=trainDataLoader,
       lossFun=au.kl_loss, opt=opt, scheduler=sch, sTst=stimuli,
       ctgIndTst=labels
     )
 
     # Get posteriors
-    posteriors = ama.get_posteriors(stimuli)
+    posteriors = ama.posteriors(stimuli)
 
     # Sample from the distribution
     assert not torch.isnan(ama.f.detach()).any(), 'Filters are nan'
