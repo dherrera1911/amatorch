@@ -14,8 +14,7 @@ from amatorch import utilities as au
 #####################
 
 class AMA(ABC, nn.Module):
-    def __init__(self, n_dim, n_filters=2, n_channels=1, priors=1,
-                 device='cpu', dtype=torch.float32):
+    def __init__(self, n_dim, n_filters, priors, n_channels=1):
         """ Abstract AMA parent class.
         -----------------
         Arguments:
@@ -31,7 +30,7 @@ class AMA(ABC, nn.Module):
         self.dtype = dtype
         self.n_dim = n_dim
         self.n_filters = n_filters
-        self.priors = priors
+        register_buffer("priors", torch.as_tensor(priors))
 
         ### Make initial random filters
         filters = torch.randn(n_filters, n_channels, n_dim)
@@ -194,8 +193,8 @@ class AMA(ABC, nn.Module):
 #####################
 
 class AMAGauss(AMA):
-    def __init__(self, stimuli, labels, n_filters=2, values=None, c50=0.0, device='cpu',
-                 dtype=torch.float32):
+    def __init__(self, stimuli, labels, n_filters=2, priors=None,
+                 c50=0.0, device='cpu', dtype=torch.float32):
         """
         -----------------
         AMA Gauss
@@ -206,9 +205,13 @@ class AMAGauss(AMA):
         n_dim = stimuli.shape[-1]
         n_channels = stimuli.shape[-2]
         n_classes = torch.unique(labels).size()[0]
-        super().__init__(n_dim=stimuli.shape[-1], n_filters=n_filters, n_channels=n_channels,
-                         device=device, dtype=dtype)
         self.register_buffer('c50', torch.as_tensor(c50))
+
+        if priors is None:
+            priors = torch.ones(n_classes) / n_classes
+
+        super().__init__(n_dim=stimuli.shape[-1], n_filters=n_filters, priors=priors,
+                         n_channels=n_channels)
 
         ### Compute stimuli statistics
         stimulus_statistics = inference.class_statistics(
