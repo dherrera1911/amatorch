@@ -26,11 +26,9 @@ class AMA(ABC, nn.Module):
           - dtype: Data type to use. Defaults to torch.float32
         """
         super().__init__()
-        self.device = device
-        self.dtype = dtype
         self.n_dim = n_dim
         self.n_filters = n_filters
-        register_buffer("priors", torch.as_tensor(priors))
+        self.register_buffer("priors", torch.as_tensor(priors))
 
         ### Make initial random filters
         filters = torch.randn(n_filters, n_channels, n_dim)
@@ -165,15 +163,6 @@ class AMA(ABC, nn.Module):
         return labels
 
 
-    #########################
-    # RESPONSE DISTRIBUTIONS
-    #########################
-
-    @abstractmethod
-    def update_response_distributions(self):
-        pass
-
-
     def forward(self, stimuli):
         """ Compute the class posteriors for the stimuli.
         -----------------
@@ -186,6 +175,16 @@ class AMA(ABC, nn.Module):
             - responses: Responses tensor (n_stim x n_filters)
         """
         return self.posteriors(stimuli)
+
+
+    #########################
+    # RESPONSE DISTRIBUTIONS
+    #########################
+
+    @abstractmethod
+    def update_response_distributions(self):
+        pass
+
 
 
 #####################
@@ -205,13 +204,13 @@ class AMAGauss(AMA):
         n_dim = stimuli.shape[-1]
         n_channels = stimuli.shape[-2]
         n_classes = torch.unique(labels).size()[0]
-        self.register_buffer('c50', torch.as_tensor(c50))
 
         if priors is None:
             priors = torch.ones(n_classes) / n_classes
 
         super().__init__(n_dim=stimuli.shape[-1], n_filters=n_filters, priors=priors,
                          n_channels=n_channels)
+        self.register_buffer('c50', torch.as_tensor(c50))
 
         ### Compute stimuli statistics
         stimulus_statistics = inference.class_statistics(
@@ -301,15 +300,12 @@ class AMAGauss(AMA):
         self.response_statistics.covariances.copy_(response_covariances)
 
 
-
-
-
 # Define the sphere constraint
 class Sphere(nn.Module):
     def forward(self, X):
         """ Function to parametrize sphere vector S """
         # X is any vector
-        S = X / torch.linalg.vector_norm(X, dim=1, keepdim=True) # Unit norm vector
+        S = X / torch.linalg.vector_norm(X, dim=-1, keepdim=True) # Unit norm vector
         return S
 
     def right_inverse(self, S):

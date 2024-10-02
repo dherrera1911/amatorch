@@ -19,5 +19,12 @@ def load_data(data_dir='disparity'):
     return {'stimuli': stimuli, 'labels': labels, 'values': values}
 
 
+def load_filters(data_dir='disparity'):
+
+    filters = torch.as_tensor(
+      np.loadtxt(data_dir / 'filters.csv', delimiter=',', dtype=np.float32)
+    )
+
+    return filters
 
 
