@@ -2,7 +2,7 @@ import torch
 import numpy as np
 
 def load_data(data_dir='disparity'):
-
+    """Load and format dataset .csv files containing stimuli, labels, and label values."""
     stimuli = torch.as_tensor(
       np.loadtxt(data_dir / 'stimuli.csv', delimiter=',', dtype=np.float32)
     )
@@ -20,6 +20,7 @@ def load_data(data_dir='disparity'):
 
 
 def load_filters(data_dir='disparity'):
+    """Load and format pretrained filters in .csv file."""
 
     filters = torch.as_tensor(
       np.loadtxt(data_dir / 'filters.csv', delimiter=',', dtype=np.float32)
