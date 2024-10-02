@@ -49,8 +49,8 @@ def class_statistics(points, labels):
     covariances = torch.zeros(n_classes, n_dim, n_dim)
     for i in range(n_classes):
         indices = (labels == i).nonzero().squeeze(1)
-        means[i] = points[indices].mean(0)
-        covariances[i] = torch.diag(points[indices])
+        means[i] = torch.mean(points[indices], dim=0)
+        covariances[i] = torch.cov(points[indices], dim=0)
     return {'means': means, 'covariances': covariances}
 
 
