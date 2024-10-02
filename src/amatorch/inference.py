@@ -56,6 +56,3 @@ def class_statistics(points, labels):
         means[i] = torch.mean(points[indices], dim=0)
         covariances[i] = torch.cov(points[indices].t())
     return {'means': means, 'covariances': covariances}
-
-
-
