@@ -158,9 +158,8 @@ class AMA(ABC, nn.Module):
             - estimates: Vector with the estimated latent variable for each
                 stimulus. (nStim)
         """
-        # Get maximum posteriors indices of each stim, and its value
-        (a, labels) = torch.max(posteriors, dim=-1)
-        return labels
+        # Get the index of the class with the highest posterior probability
+        return torch.arg_max(posteriors, dim=-1)
 
 
     def forward(self, stimuli):
@@ -259,7 +258,6 @@ class AMAGauss(AMA):
         responses = torch.einsum('kcd,ncd->nk', self.filters, stimuli_processed)
         return responses
 
-
     def responses_2_log_likelihoods(self, responses):
         """ Compute log-likelihood of each class given the filter responses.
 
@@ -303,14 +301,24 @@ class AMAGauss(AMA):
 # Define the sphere constraint
 class Sphere(nn.Module):
     def forward(self, X):
-        """ Function to parametrize sphere vector S """
-        # X is any vector
-        S = X / torch.linalg.vector_norm(X, dim=-1, keepdim=True) # Unit norm vector
-        return S
+        """ Function to parametrize vectors on sphere.
+        Each channel of X is first normalized to have unit norm,
+        and then multiplied by the square root of the number of channels.
+        -----------------
+        Arguments:
+        -----------------
+            - X: Tensor in Euclidean space (n_filters x n_channels x n_dim)
+        -----------------
+        Output:
+        -----------------
+            - S: Tensor on sphere (n_filters x n_channels x n_dim)
+        """
+
+        return normalization.unit_norm(X)
 
     def right_inverse(self, S):
-        """ Function to assign to parametrization""" 
-        return S * S.shape[0]
+        """ Function to assign to parametrization"""
+        return S
 
 class ClassStatistics(nn.Module):
     def __init__(self, stats_dict):
