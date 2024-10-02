@@ -1,6 +1,6 @@
 import torch
 
-def unit_norm(stimuli, c50=0):
+def unit_norm(stimuli, c50=torch.as_tensor(0)):
     """Normalize stimuli to have norm less or equal to 1.
 
     Each channel is normalized by its offsetted norm
@@ -19,4 +19,3 @@ def unit_norm(stimuli, c50=0):
     n_channels = torch.as_tensor(stimuli.shape[1], dtype=stimuli.dtype, device=stimuli.device)
     normalizing_factor = torch.sqrt(torch.sum(stimuli**2, dim=-1) + c50) * torch.sqrt(n_channels)
     return stimuli / normalizing_factor.unsqueeze(-1)
-
