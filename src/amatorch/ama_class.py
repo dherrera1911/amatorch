@@ -175,6 +175,20 @@ class AMA(ABC, nn.Module):
         pass
 
 
+    def forward(self, stimuli):
+        """ Compute the class posteriors for the stimuli.
+        -----------------
+        Arguments:
+        -----------------
+            - stimuli: Stimulus tensor (n_stim x n_channels x n_dim)
+        -----------------
+        Output:
+        -----------------
+            - responses: Responses tensor (n_stim x n_filters)
+        """
+        return self.posteriors(stimuli)
+
+
 #####################
 # AMA GAUSS
 #####################
