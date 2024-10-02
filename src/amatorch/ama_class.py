@@ -159,7 +159,7 @@ class AMA(ABC, nn.Module):
                 stimulus. (nStim)
         """
         # Get the index of the class with the highest posterior probability
-        return torch.arg_max(posteriors, dim=-1)
+        return torch.argmax(posteriors, dim=-1)
 
 
     def forward(self, stimuli):
@@ -313,8 +313,7 @@ class Sphere(nn.Module):
         -----------------
             - S: Tensor on sphere (n_filters x n_channels x n_dim)
         """
-
-        return normalization.unit_norm(X)
+        return X / torch.linalg.matrix_norm(X, dim=(-1, -2), keepdim=True)
 
     def right_inverse(self, S):
         """ Function to assign to parametrization"""
