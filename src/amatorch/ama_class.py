@@ -142,7 +142,7 @@ class AMA(ABC, nn.Module):
         -----------------
             - posteriors: Posteriors tensor (n_stim x n_classes)
         """
-        return tfun.softmax(log_likelihoods + torch.log(self.posteriors), dim=-1)
+        return tfun.softmax(log_likelihoods + torch.log(self.priors), dim=-1)
 
 
     def posteriors_2_estimates(self, posteriors):
@@ -288,7 +288,7 @@ class AMAGauss(AMA):
         response_means = torch.einsum(
           'cd,kd->ck', self.stimulus_statistics.means, flat_filters
         )
-        self.response_statistics.means.resize_(response_means.shape)
+        #self.response_statistics.means.resize_(response_means.shape)
         self.response_statistics.means.copy_(response_means)
 
         # Update covariances
@@ -296,7 +296,7 @@ class AMAGauss(AMA):
           'kd,cdb,mb->ckm', flat_filters, self.stimulus_statistics.covariances,
           flat_filters
         )
-        self.response_statistics.covariances.resize_(response_covariances.shape)
+        #self.response_statistics.covariances.resize_(response_covariances.shape)
         self.response_statistics.covariances.copy_(response_covariances)
 
 
