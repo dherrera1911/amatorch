@@ -239,7 +239,7 @@ class AMAGauss(AMA):
         -----------------
             - stimuli_preprocessed: Processed stimuli tensor (nStim x n_dim)
         """
-        return normalization.unit_norm(stimuli, c50=self.c50)
+        return normalization.unit_norm_channels(stimuli, c50=self.c50)
 
 
     def responses(self, stimuli):
@@ -313,7 +313,7 @@ class Sphere(nn.Module):
         -----------------
             - S: Tensor on sphere (n_filters x n_channels x n_dim)
         """
-        return X / torch.linalg.matrix_norm(X, dim=(-1, -2), keepdim=True)
+        return normalization.unit_norm(X)
 
     def right_inverse(self, S):
         """ Function to assign to parametrization"""
