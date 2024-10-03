@@ -46,9 +46,6 @@ def class_statistics(points, labels):
     """
     n_classes = int(torch.max(labels) + 1)
     n_dim = points.shape[-1]
-    # This can be vectorized (https://tinyurl.com/mr3jajfa),
-    # but we'll keep it simple for now since we use it
-    # only once for initialization
     means = torch.zeros(n_classes, n_dim)
     covariances = torch.zeros(n_classes, n_dim, n_dim)
     for i in range(n_classes):
