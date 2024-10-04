@@ -79,7 +79,8 @@ class AMA(ABC, nn.Module):
             - log_likelihoods: Log-likelihoods tensor (n_stim x n_classes)
         """
         responses = self.responses(stimuli=stimuli)
-        return self.responses_2_log_likelihoods(responses)
+        log_likelihoods = self.responses_2_log_likelihoods(responses)
+        return log_likelihoods
 
 
     def posteriors(self, stimuli):
@@ -95,7 +96,8 @@ class AMA(ABC, nn.Module):
             - posteriors: Posteriors tensor (n_stim x n_classes)
         """
         log_likelihoods = self.log_likelihoods(stimuli=stimuli)
-        return self.log_likelihoods_2_posteriors(log_likelihoods)
+        posteriors = self.log_likelihoods_2_posteriors(log_likelihoods)
+        return posteriors
 
 
     def estimates(self, stimuli):
@@ -111,7 +113,8 @@ class AMA(ABC, nn.Module):
             - estimates: Estimates tensor (n_stim)
         """
         posteriors = self.posteriors(stimuli=stimuli)
-        return self.posteriors_2_estimates(posteriors=posteriors)
+        estimates = self.posteriors_2_estimates(posteriors=posteriors)
+        return estimates
 
 
     @abstractmethod
@@ -142,7 +145,8 @@ class AMA(ABC, nn.Module):
         -----------------
             - posteriors: Posteriors tensor (n_stim x n_classes)
         """
-        return tfun.softmax(log_likelihoods + torch.log(self.priors), dim=-1)
+        posteriors = tfun.softmax(log_likelihoods + torch.log(self.priors), dim=-1)
+        return posteriors
 
 
     def posteriors_2_estimates(self, posteriors):
@@ -159,7 +163,8 @@ class AMA(ABC, nn.Module):
                 stimulus. (nStim)
         """
         # Get the index of the class with the highest posterior probability
-        return torch.argmax(posteriors, dim=-1)
+        estimates = torch.argmax(posteriors, dim=-1)
+        return estimates
 
 
     def forward(self, stimuli):
@@ -173,17 +178,8 @@ class AMA(ABC, nn.Module):
         -----------------
             - responses: Responses tensor (n_stim x n_filters)
         """
-        return self.posteriors(stimuli)
-
-
-    #########################
-    # RESPONSE DISTRIBUTIONS
-    #########################
-
-    @abstractmethod
-    def update_response_distributions(self):
-        pass
-
+        posteriors = self.posteriors(stimuli)
+        return posteriors
 
 
 #####################
@@ -192,12 +188,20 @@ class AMA(ABC, nn.Module):
 
 class AMAGauss(AMA):
     def __init__(self, stimuli, labels, n_filters=2, priors=None,
-                 c50=0.0, device='cpu', dtype=torch.float32):
+                 response_noise=0.0, c50=0.0, device='cpu', dtype=torch.float32):
         """
         -----------------
         AMA Gauss
         -----------------
         Assume that class-conditional responses are Gaussian distributed.
+
+        -----------------
+        Arguments:
+        -----------------
+            - stimuli: Stimulus tensor (n_stim x n_channels x n_dim)
+            - labels: Label tensor (n_stim)
+            - n_filters: Number of filters to use
+            - priors: Prior probabilities of each class
         """
         # Initialize
         n_dim = stimuli.shape[-1]
@@ -210,21 +214,14 @@ class AMAGauss(AMA):
         super().__init__(n_dim=stimuli.shape[-1], n_filters=n_filters, priors=priors,
                          n_channels=n_channels)
         self.register_buffer('c50', torch.as_tensor(c50))
+        self.register_buffer('response_noise', torch.as_tensor(response_noise))
 
-        ### Compute stimuli statistics
+        ### Store stimuli statistics
         stimulus_statistics = inference.class_statistics(
           points=torch.flatten(self.preprocess(stimuli), -2, -1), # Collapse channels
           labels=labels
         )
-        self.stimulus_statistics = ClassStatistics(stimulus_statistics)
-
-        ### Compute response statistics
-        response_statistics = {
-          'means': torch.zeros(n_classes, n_filters),
-          'covariances': torch.eye(n_filters).repeat(n_classes, 1, 1)
-        }
-        self.response_statistics = ClassStatistics(response_statistics)
-        self.update_response_distributions()
+        self.stimulus_statistics = BuffersDict(stimulus_statistics)
 
 
     def preprocess(self, stimuli):
@@ -258,6 +255,7 @@ class AMAGauss(AMA):
         responses = torch.einsum('kcd,ncd->nk', self.filters, stimuli_processed)
         return responses
 
+
     def responses_2_log_likelihoods(self, responses):
         """ Compute log-likelihood of each class given the filter responses.
 
@@ -270,32 +268,48 @@ class AMAGauss(AMA):
         -----------------
             - log_likelihoods: Log likelihoods tensor (n_stim x n_classes)
         """
-        return inference.gaussian_log_likelihoods(
+        # Compute log likelihoods
+        log_likelihoods = inference.gaussian_log_likelihoods(
           responses,
-          self.response_statistics.means,
-          self.response_statistics.covariances
+          self.response_statistics['means'],
+          self.response_statistics['covariances']
         )
+        return log_likelihoods
 
 
-    def update_response_distributions(self):
+    @property
+    def response_statistics(self):
+        """Return the class-conditional response statistics.
+
+        -----------------
+        Output:
+        -----------------
+            - response_statistics: Dictionary with keys 'means' and 'covariances'
         """
-        Update the class-conditional response means and covariances
-        """
-        # Update means
         flat_filters = torch.flatten(self.filters, -2, -1)
-        response_means = torch.einsum(
-          'cd,kd->ck', self.stimulus_statistics.means, flat_filters
-        )
-        #self.response_statistics.means.resize_(response_means.shape)
-        self.response_statistics.means.copy_(response_means)
+        dtype = flat_filters.dtype
+        device = flat_filters.device
 
-        # Update covariances
-        response_covariances = torch.einsum(
-          'kd,cdb,mb->ckm', flat_filters, self.stimulus_statistics.covariances,
-          flat_filters
+        response_means = torch.einsum(
+          'cd,kd->ck', self.stimulus_statistics['means'], flat_filters
         )
-        #self.response_statistics.covariances.resize_(response_covariances.shape)
-        self.response_statistics.covariances.copy_(response_covariances)
+
+        noise_covariance = torch.eye(self.n_filters, dtype=dtype, device=device) * self.response_noise
+        response_covariances = torch.einsum(
+          'kd,cdb,mb->ckm', flat_filters, self.stimulus_statistics['covariances'], flat_filters
+        )
+
+        response_statistics = {
+            'means': response_means,
+            'covariances': response_covariances + noise_covariance
+        }
+        return response_statistics
+
+    # Warn users that the response statistics can't be set
+    @response_statistics.setter
+    def response_statistics(self):
+        raise AttributeError("The response statistics can't be set directly. "
+                             "They are computed from the filters and the stimulus statistics.")
 
 
 # Define the sphere constraint
@@ -319,9 +333,61 @@ class Sphere(nn.Module):
         """ Function to assign to parametrization"""
         return S
 
-class ClassStatistics(nn.Module):
-    def __init__(self, stats_dict):
-        super(ClassStatistics, self).__init__()
-        for name, tensor in stats_dict.items():
-            self.register_buffer(name, tensor)
+class BuffersDict(nn.Module):
+    def __init__(self, stats_dict=None):
+        super(BuffersDict, self).__init__()
+        if stats_dict is not None:
+            for name, tensor in stats_dict.items():
+                self.register_buffer(name, tensor)
 
+    def __getitem__(self, key):
+        if key in self._buffers:
+            return self._buffers[key]
+        else:
+            raise KeyError(f"'{key}' not found in BuffersDict")
+
+    def __setitem__(self, key, value):
+        self.register_buffer(key, value)
+
+    def __delitem__(self, key):
+        if key in self._buffers:
+            del self._buffers[key]
+        else:
+            raise KeyError(f"'{key}' not found in BuffersDict")
+
+    def __iter__(self):
+        return iter(self._buffers)
+
+    def __len__(self):
+        return len(self._buffers)
+
+    def keys(self):
+        return self._buffers.keys()
+
+    def items(self):
+        return self._buffers.items()
+
+    def values(self):
+        return self._buffers.values()
+
+    def __contains__(self, key):
+        return key in self._buffers
+
+    def __repr__(self):
+        # Customize how tensors are represented
+        def tensor_repr(tensor):
+            if tensor.numel() > 10:
+                # Show only the shape and dtype for large tensors
+                return f"tensor(shape={tuple(tensor.shape)}, dtype={tensor.dtype}, device={tensor.device})"
+            else:
+                # Use default tensor representation
+                return repr(tensor)
+
+        items_repr = ", ".join(
+            f"'{key}': {tensor_repr(value)}"
+            for key, value in self.items()
+        )
+        return f"BuffersDict({{{items_repr}}})"
+
+    def __str__(self):
+        return self.__repr__()
