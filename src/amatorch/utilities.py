@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 from torch import optim
-import torch.nn.functional as F
+import torch.nn.functional as torchF
 import pycircstat as pcirc
 import time
 
@@ -38,7 +38,7 @@ def cross_entropy_loss(model, s, ctgInd):
     return loss
 
 
-def kl_loss(model, s, ctgInd):
+def kl_loss(model, stimuli, labels):
     """
     ----------------
     Arguments:
@@ -51,10 +51,10 @@ def kl_loss(model, s, ctgInd):
     ----------------
       - loss: Negative LL loss
     """
-    logProbs = F.log_softmax(model.log_likelihoods(s), dim=1)
-    nStim = s.shape[0]
-    correctClassLogProbs = logProbs[torch.arange(nStim), ctgInd]
-    loss = -torch.mean(correctClassLogProbs)
+    n_stimuli = stimuli.shape[0]
+    log_posteriors = torch.log(model.posteriors(stimuli) + 1e-8)
+    correct_log_posteriors = log_posteriors[torch.arange(n_stimuli), labels]
+    loss = -torch.mean(correct_log_posteriors)
     return loss
 
 
