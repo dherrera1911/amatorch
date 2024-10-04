@@ -1,5 +1,11 @@
 import torch
 
+__all__ = ['unit_norm', 'unit_norm_channels']
+
+def __dir__():
+      return __all__
+
+
 def unit_norm(stimuli, c50=torch.as_tensor(0)):
     """Normalize stimuli to have norm less or equal to 1.
 
