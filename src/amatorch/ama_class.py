@@ -7,7 +7,6 @@ from torch.nn.utils.parametrize import register_parametrization
 from torch.distributions.multivariate_normal import MultivariateNormal
 from amatorch import normalization
 from amatorch import inference
-from amatorch import utilities as au
 
 #####################
 # PARENT AMA CLASS
