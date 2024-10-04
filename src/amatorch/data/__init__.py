@@ -37,5 +37,3 @@ def disparity_filters():
     n_pixels = 26
     filters = filters.reshape(-1, n_channels, n_pixels)
     return filters
-
-

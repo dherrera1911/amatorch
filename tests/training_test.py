@@ -10,7 +10,6 @@ import torch
 import amatorch.ama_class as cl
 from amatorch.data import disparity_data
 import amatorch.optim as optim
-import amatorch.utilities as au
 
 # Initialize the AMA class
 N_EPOCHS = 10
@@ -41,8 +40,8 @@ def test_training():
     # Fit model
     loss, training_time = optim.fit(
       model=ama, stimuli=stimuli, labels=labels,
-      epochs=N_EPOCHS, loss_fun=au.kl_loss,
-      batch_size=BATCH_SIZE, learning_rate=LR,
+      epochs=N_EPOCHS, batch_size=BATCH_SIZE,
+      learning_rate=LR,
       decay_step=LR_STEP, decay_rate=LR_GAMMA,
     )
 
