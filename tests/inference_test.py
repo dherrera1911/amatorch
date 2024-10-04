@@ -64,7 +64,6 @@ def test_ama_gauss_responses(data, filters, responses_ref):
 def test_ama_gauss_inference(data, filters, log_likelihoods_ref, posteriors_ref, estimates_ref):
     """Test that AMA-Gauss can perform inference on stimuli
     and that the outputs are close to the reference values."""
-    n_filters = filters.shape[0]
     n_stimuli, n_channels, n_dim = data['stimuli'].shape
 
     ama = cl.AMAGauss(
@@ -75,7 +74,6 @@ def test_ama_gauss_inference(data, filters, log_likelihoods_ref, posteriors_ref,
 
     # Assign pretrained filters
     ama.filters = filters
-    ama.update_response_distributions()
 
     # Get inference results
     with torch.no_grad():
