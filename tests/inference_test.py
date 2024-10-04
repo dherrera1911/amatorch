@@ -1,7 +1,7 @@
 import pytest
 import torch
 import numpy as np
-import amatorch.ama_class as cl
+from amatorch.models import AMAGauss
 from amatorch.data import disparity_data, disparity_filters
 
 @pytest.fixture(scope='module')
@@ -46,7 +46,7 @@ def test_ama_gauss_responses(data, filters, responses_ref):
     n_filters = filters.shape[0]
     n_stimuli, n_channels, n_dim = data['stimuli'].shape
 
-    ama = cl.AMAGauss(
+    ama = AMAGauss(
         stimuli=data['stimuli'],
         labels=data['labels'],
         n_filters=2,
@@ -66,7 +66,7 @@ def test_ama_gauss_inference(data, filters, log_likelihoods_ref, posteriors_ref,
     and that the outputs are close to the reference values."""
     n_stimuli, n_channels, n_dim = data['stimuli'].shape
 
-    ama = cl.AMAGauss(
+    ama = AMAGauss(
         stimuli=data['stimuli'],
         labels=data['labels'],
         n_filters=2,
