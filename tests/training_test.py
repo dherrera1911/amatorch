@@ -7,18 +7,19 @@
 
 import pytest
 import torch
-from torch.utils.data import TensorDataset, DataLoader
 import amatorch.ama_class as cl
-import amatorch.optim as optim
 from amatorch.data import disparity_data
+import amatorch.optim as optim
 import amatorch.utilities as au
 
 # Initialize the AMA class
 N_EPOCHS = 10
-LR = 0.05
+LR = 0.1
 LR_STEP = 5
 LR_GAMMA = 0.5
 BATCH_SIZE = 512
+RESPONSE_NOISE = 0.1
+C50 = 0.5
 
 ######## TEST THAT AMA RUNS ########
 def test_training():
@@ -33,34 +34,22 @@ def test_training():
       stimuli=stimuli,
       labels=labels,
       n_filters=2,
-      values=values,
-    )
-
-    # Train the model
-    trainDataset = TensorDataset(stimuli, labels)
-    # Batch loading and other utilities 
-    trainDataLoader = DataLoader(
-      trainDataset,
-      batch_size=BATCH_SIZE,
-      shuffle=True)
-    # Optimizer and scheduler
-    opt = torch.optim.Adam(ama.parameters(), lr=LR)
-    sch = torch.optim.lr_scheduler.StepLR(
-      opt, step_size=LR_STEP, gamma=LR_GAMMA
+      response_noise=RESPONSE_NOISE,
+      c50=C50,
     )
 
     # Fit model
-    loss, tstLoss, elapsedTimes = optim.fit(
-      nEpochs=N_EPOCHS, model=ama, trainDataLoader=trainDataLoader,
-      lossFun=au.kl_loss, opt=opt, scheduler=sch, sTst=stimuli,
-      ctgIndTst=labels
+    loss, training_time = optim.fit(
+      model=ama, stimuli=stimuli, labels=labels,
+      epochs=N_EPOCHS, loss_fun=au.kl_loss,
+      batch_size=BATCH_SIZE, learning_rate=LR,
+      decay_step=LR_STEP, decay_rate=LR_GAMMA,
     )
 
-    # Get posteriors
+    # Get the posteriors
     posteriors = ama.posteriors(stimuli)
 
     # Sample from the distribution
-    assert not torch.isnan(ama.f.detach()).any(), 'Filters are nan'
+    assert not torch.isnan(ama.filters.detach()).any(), 'Filters are nan'
     assert loss[0] > loss[-1], 'Loss did not decrease'
     assert not torch.isnan(posteriors).any(), 'Posteriors are nan'
-
