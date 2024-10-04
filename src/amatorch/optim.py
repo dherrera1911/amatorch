@@ -4,11 +4,11 @@ from torch import optim
 from torch.utils.data import TensorDataset, DataLoader
 import time
 
-# Define loop function to train the model
+
 def fit(model, stimuli, labels, epochs, loss_fun, batch_size=512,
         learning_rate=0.1, decay_step=1000, decay_rate=1):
     """
-    Learn AMA filters
+    Learn AMA filters.
 
     ----------------
     Arguments:
