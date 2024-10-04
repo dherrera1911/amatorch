@@ -5,3 +5,4 @@ from . import plotting
 from . import data
 from . import normalization
 from . import optim
+from . import constraints

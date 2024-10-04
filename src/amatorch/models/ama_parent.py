@@ -1,20 +1,20 @@
 from abc import ABC, abstractmethod
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as tfun
 from torch.nn.utils.parametrize import register_parametrization
-from torch.distributions.multivariate_normal import MultivariateNormal
 from amatorch import normalization
 from amatorch import inference
+from amatorch import constraints
 
 #####################
 # PARENT AMA CLASS
 #####################
 
-class AMA(ABC, nn.Module):
+class AMAParent(ABC, nn.Module):
     def __init__(self, n_dim, n_filters, priors, n_channels=1):
         """ Abstract AMA parent class.
+
         -----------------
         Arguments:
         -----------------
@@ -33,7 +33,7 @@ class AMA(ABC, nn.Module):
         filters = torch.randn(n_filters, n_channels, n_dim)
         # Model parameters
         self.filters = nn.Parameter(filters)
-        register_parametrization(self, "filters", Sphere())
+        register_parametrization(self, "filters", constraints.Sphere())
 
 
     #########################
@@ -185,7 +185,7 @@ class AMA(ABC, nn.Module):
 # AMA GAUSS
 #####################
 
-class AMAGauss(AMA):
+class AMAGauss(AMAParent):
     def __init__(self, stimuli, labels, n_filters=2, priors=None,
                  response_noise=0.0, c50=0.0, device='cpu', dtype=torch.float32):
         """
@@ -309,28 +309,6 @@ class AMAGauss(AMA):
     def response_statistics(self):
         raise AttributeError("The response statistics can't be set directly. "
                              "They are computed from the filters and the stimulus statistics.")
-
-
-# Define the sphere constraint
-class Sphere(nn.Module):
-    def forward(self, X):
-        """ Function to parametrize vectors on sphere.
-        Each channel of X is first normalized to have unit norm,
-        and then multiplied by the square root of the number of channels.
-        -----------------
-        Arguments:
-        -----------------
-            - X: Tensor in Euclidean space (n_filters x n_channels x n_dim)
-        -----------------
-        Output:
-        -----------------
-            - S: Tensor on sphere (n_filters x n_channels x n_dim)
-        """
-        return normalization.unit_norm(X)
-
-    def right_inverse(self, S):
-        """ Function to assign to parametrization"""
-        return S
 
 class BuffersDict(nn.Module):
     def __init__(self, stats_dict=None):
