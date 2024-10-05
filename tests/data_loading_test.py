@@ -1,5 +1,5 @@
-import pytest
 import torch
+
 from amatorch.data import disparity_data, disparity_filters
 
 
@@ -7,14 +7,14 @@ def test_disparity_data_loading():
     """Test that disparity data is loaded correctly."""
     data = disparity_data()
 
-    assert 'stimuli' in data
-    assert 'labels' in data
-    assert 'values' in data
+    assert "stimuli" in data
+    assert "labels" in data
+    assert "values" in data
 
-    assert isinstance(data['stimuli'], torch.Tensor)
-    assert isinstance(data['labels'], torch.Tensor)
-    assert isinstance(data['values'], torch.Tensor)
-    assert data['stimuli'].dim() == 3
+    assert isinstance(data["stimuli"], torch.Tensor)
+    assert isinstance(data["labels"], torch.Tensor)
+    assert isinstance(data["values"], torch.Tensor)
+    assert data["stimuli"].dim() == 3
 
 
 def test_disparity_filter_loading():

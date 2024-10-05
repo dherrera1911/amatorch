@@ -7,9 +7,10 @@
 
 import pytest
 import torch
-from amatorch.models import AMAGauss
-from amatorch.data import disparity_data
+
 import amatorch.optim as optim
+from amatorch.data import disparity_data
+from amatorch.models import AMAGauss
 
 # Initialize the AMA class
 N_EPOCHS = 10
@@ -21,38 +22,37 @@ RESPONSE_NOISE = 0.1
 C50 = 0.5
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def data():
     return disparity_data()
 
 
 ######## TEST THAT AMA RUNS ########
 def test_training(data):
-
     ama = AMAGauss(
-      stimuli=data['stimuli'],
-      labels=data['labels'],
-      n_filters=2,
-      response_noise=RESPONSE_NOISE,
-      c50=C50,
+        stimuli=data["stimuli"],
+        labels=data["labels"],
+        n_filters=2,
+        response_noise=RESPONSE_NOISE,
+        c50=C50,
     )
 
     # Fit model
     loss, training_time = optim.fit(
-      model=ama,
-      stimuli=data['stimuli'],
-      labels=data['labels'],
-      epochs=N_EPOCHS,
-      batch_size=BATCH_SIZE,
-      learning_rate=LR,
-      decay_step=LR_STEP,
-      decay_rate=LR_GAMMA,
+        model=ama,
+        stimuli=data["stimuli"],
+        labels=data["labels"],
+        epochs=N_EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        decay_step=LR_STEP,
+        decay_rate=LR_GAMMA,
     )
 
     # Get the posteriors
-    posteriors = ama.posteriors(data['stimuli'])
+    posteriors = ama.posteriors(data["stimuli"])
 
     # Sample from the distribution
-    assert not torch.isnan(ama.filters.detach()).any(), 'Filters are nan'
-    assert loss[0] > loss[-1], 'Loss did not decrease'
-    assert not torch.isnan(posteriors).any(), 'Posteriors are nan'
+    assert not torch.isnan(ama.filters.detach()).any(), "Filters are nan"
+    assert loss[0] > loss[-1], "Loss did not decrease"
+    assert not torch.isnan(posteriors).any(), "Posteriors are nan"
