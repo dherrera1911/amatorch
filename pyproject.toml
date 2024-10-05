@@ -70,7 +70,6 @@ exclude = [
     "node_modules",
     "site-packages",
     "venv",
-    "tests",
     "docs",
     ]
 
