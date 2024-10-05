@@ -1,18 +1,28 @@
+import time
+
 import torch
 from torch import optim
-from torch.utils.data import TensorDataset, DataLoader
-import time
+from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
 
-__all__ = ['fit']
+__all__ = ["fit"]
 
 
 def __dir__():
     return __all__
 
 
-def fit(model, stimuli, labels, epochs, loss_fun=None, batch_size=512,
-        learning_rate=0.1, decay_step=1000, decay_rate=1):
+def fit(
+    model,
+    stimuli,
+    labels,
+    epochs,
+    loss_fun=None,
+    batch_size=512,
+    learning_rate=0.1,
+    decay_step=1000,
+    decay_rate=1,
+):
     """Learn AMA filters.
 
     ----------------
@@ -45,7 +55,7 @@ def fit(model, stimuli, labels, epochs, loss_fun=None, batch_size=512,
     # Create optimizer and scheduler
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     scheduler = torch.optim.lr_scheduler.StepLR(
-      optimizer, step_size=decay_step, gamma=decay_rate
+        optimizer, step_size=decay_step, gamma=decay_rate
     )
     optimizer.zero_grad()
 
@@ -58,7 +68,10 @@ def fit(model, stimuli, labels, epochs, loss_fun=None, batch_size=512,
         epoch_start_time = time.time()
         running_loss = 0.0
 
-        for batch_stimuli, batch_labels in tqdm(data_loader, desc=f"Epoch {e+1}/{epochs}", unit="batch", leave=False):
+        for batch_stimuli, batch_labels in tqdm(
+            data_loader, desc=f"Epoch {e+1}/{epochs}", unit="batch", leave=False
+        ):
+
             optimizer.zero_grad()
             batch_loss = loss_fun(model, batch_stimuli, batch_labels)
             batch_loss.backward()
@@ -71,18 +84,17 @@ def fit(model, stimuli, labels, epochs, loss_fun=None, batch_size=512,
         training_time.append(epoch_time)
         current_loss = running_loss / n_batches
 
-        if prev_loss is None:
-            loss_change = 0.0
-        else:
-            loss_change = current_loss - prev_loss
+        loss_change = 0.0 if prev_loss is None else current_loss - prev_loss
 
         loss.append(current_loss)
         prev_loss = current_loss
         total_time = time.time() - total_start_time
 
         # Update tqdm bar description with loss change and total time
-        tqdm.write(f"Epoch {e+1}/{epochs}, Loss: {current_loss:.4f}, " +
-                   f"Change: {loss_change:.4f}, Time: {total_time:.2f}s")
+        tqdm.write(
+            f"Epoch {e+1}/{epochs}, Loss: {current_loss:.4f}, "
+            + f"Change: {loss_change:.4f}, Time: {total_time:.2f}s"
+        )
 
     return torch.as_tensor(loss), torch.as_tensor(training_time)
 
