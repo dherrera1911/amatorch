@@ -1,9 +1,10 @@
 import torch
 
-__all__ = ['unit_norm', 'unit_norm_channels']
+__all__ = ["unit_norm", "unit_norm_channels"]
+
 
 def __dir__():
-      return __all__
+    return __all__
 
 
 def unit_norm(stimuli, c50=torch.as_tensor(0)):
@@ -21,7 +22,7 @@ def unit_norm(stimuli, c50=torch.as_tensor(0)):
       - stimuli_normalized: Normalized stimuli. (nStim x nDim)
     """
     # Normalizing factor
-    normalizing_factor = torch.sqrt(torch.sum(stimuli**2, dim=(-2,-1)) + c50)
+    normalizing_factor = torch.sqrt(torch.sum(stimuli**2, dim=(-2, -1)) + c50)
     return stimuli / normalizing_factor[:, None, None]
 
 
@@ -42,6 +43,10 @@ def unit_norm_channels(stimuli, c50=torch.as_tensor(0)):
       - stimuli_normalized: Normalized stimuli. (nStim x nDim)
     """
     # Normalizing factor
-    n_channels = torch.as_tensor(stimuli.shape[1], dtype=stimuli.dtype, device=stimuli.device)
-    normalizing_factor = torch.sqrt(torch.sum(stimuli**2, dim=-1) + c50) * torch.sqrt(n_channels)
+    n_channels = torch.as_tensor(
+        stimuli.shape[1], dtype=stimuli.dtype, device=stimuli.device
+    )
+    normalizing_factor = torch.sqrt(torch.sum(stimuli**2, dim=-1) + c50) * torch.sqrt(
+        n_channels
+    )
     return stimuli / normalizing_factor.unsqueeze(-1)
