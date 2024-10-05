@@ -13,7 +13,6 @@ class AMAGauss(AMAParent):
     This model assumes that class-conditional responses are Gaussian distributed.
     """
 
-
     def __init__(
         self,
         stimuli,
@@ -67,7 +66,6 @@ class AMAGauss(AMAParent):
         )
         self.stimulus_statistics = BuffersDict(stimulus_statistics)
 
-
     def preprocess(self, stimuli):
         """
         Preprocess stimuli by normalizing each channel.
@@ -87,7 +85,6 @@ class AMAGauss(AMAParent):
         """
         return normalization.unit_norm_channels(stimuli, c50=self.c50)
 
-
     def responses(self, stimuli):
         """
         Compute the responses of the filters to the stimuli after
@@ -106,7 +103,6 @@ class AMAGauss(AMAParent):
         stimuli_processed = self.preprocess(stimuli)
         responses = torch.einsum("kcd,ncd->nk", self.filters, stimuli_processed)
         return responses
-
 
     def responses_2_log_likelihoods(self, responses):
         """
@@ -128,7 +124,6 @@ class AMAGauss(AMAParent):
             self.response_statistics["covariances"],
         )
         return log_likelihoods
-
 
     @property
     def response_statistics(self):
@@ -165,7 +160,6 @@ class AMAGauss(AMAParent):
             "covariances": response_covariances + noise_covariance,
         }
         return response_statistics
-
 
     @response_statistics.setter
     def response_statistics(self):
