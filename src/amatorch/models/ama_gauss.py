@@ -7,6 +7,13 @@ from .buffers_dict import BuffersDict
 
 
 class AMAGauss(AMAParent):
+    """
+    AMAGauss model.
+
+    This model assumes that class-conditional responses are Gaussian distributed.
+    """
+
+
     def __init__(
         self,
         stimuli,
@@ -19,18 +26,23 @@ class AMAGauss(AMAParent):
         dtype=torch.float32,
     ):
         """
-        -----------------
-        AMA Gauss
-        -----------------
-        Assume that class-conditional responses are Gaussian distributed.
+        Initialize the AMAGauss model.
 
-        -----------------
-        Arguments:
-        -----------------
-            - stimuli: Stimulus tensor (n_stim x n_channels x n_dim)
-            - labels: Label tensor (n_stim)
-            - n_filters: Number of filters to use
-            - priors: Prior probabilities of each class
+        Parameters
+        ----------
+        stimuli : torch.Tensor
+            Stimulus tensor of shape (n_stim, n_channels, n_dim).
+        labels : torch.Tensor
+            Label tensor of shape (n_stim).
+        n_filters : int, optional
+            Number of filters to use, by default 2.
+        priors : torch.Tensor, optional
+            Prior probabilities of each class, by default None.
+        response_noise : float, optional
+            Noise level in the responses, by default 0.0.
+        c50 : float, optional
+            Offset added to the denominator when normalizing stimuli,
+            by default 0.0.
         """
         # Initialize
         n_channels = stimuli.shape[-2]
@@ -48,56 +60,68 @@ class AMAGauss(AMAParent):
         self.register_buffer("c50", torch.as_tensor(c50))
         self.register_buffer("response_noise", torch.as_tensor(response_noise))
 
-        ### Store stimuli statistics
+        # Store stimuli statistics
         stimulus_statistics = inference.class_statistics(
             points=torch.flatten(self.preprocess(stimuli), -2, -1),  # Collapse channels
             labels=labels,
         )
         self.stimulus_statistics = BuffersDict(stimulus_statistics)
 
+
     def preprocess(self, stimuli):
-        """Divide each channel of each stimulus stimuli[i,c]
-        by \sqrt{ ||stimuli[i,c]||^2 + c50} (square root of sum of squares + c50)
-        -----------------
-        Arguments:
-        -----------------
-            - stimuli: Stimulus tensor (n_stim x n_dim)
-        -----------------
-        Output:
-        -----------------
-            - stimuli_preprocessed: Processed stimuli tensor (nStim x n_dim)
+        """
+        Preprocess stimuli by normalizing each channel.
+
+        Each channel of each stimulus is divided by the square root of the
+        sum of squares plus `c50`.
+
+        Parameters
+        ----------
+        stimuli : torch.Tensor
+            Stimulus tensor of shape (n_stim, n_channels, n_dim).
+
+        Returns
+        -------
+        torch.Tensor
+            Processed stimuli tensor of shape (n_stim, n_channels, n_dim).
         """
         return normalization.unit_norm_channels(stimuli, c50=self.c50)
 
+
     def responses(self, stimuli):
-        """Compute the responses of the filters to the stimuli
-        (after pre-processing).
-        -----------------
-        Arguments:
-        -----------------
-            - stimuli: Stimulus tensor (n_stim x n_channels x n_dim)
-        -----------------
-        Output:
-        -----------------
-            - responses: Responses tensor (n_stim x n_filters)
+        """
+        Compute the responses of the filters to the stimuli after
+        pre-processing.
+
+        Parameters
+        ----------
+        stimuli : torch.Tensor
+            Stimulus tensor of shape (n_stim, n_channels, n_dim).
+
+        Returns
+        -------
+        torch.Tensor
+            Responses tensor of shape (n_stim, n_filters).
         """
         stimuli_processed = self.preprocess(stimuli)
         responses = torch.einsum("kcd,ncd->nk", self.filters, stimuli_processed)
         return responses
 
-    def responses_2_log_likelihoods(self, responses):
-        """Compute log-likelihood of each class given the filter responses.
 
-        -----------------
-        Arguments:
-        -----------------
-            - responses: Filter responses tensor (n_stim x n_filters)
-        -----------------
-        Output:
-        -----------------
-            - log_likelihoods: Log likelihoods tensor (n_stim x n_classes)
+    def responses_2_log_likelihoods(self, responses):
         """
-        # Compute log likelihoods
+        Compute log-likelihood of each class given the filter responses.
+
+        Parameters
+        ----------
+        responses : torch.Tensor
+            Filter responses tensor of shape (n_stim, n_filters).
+
+        Returns
+        -------
+        torch.Tensor
+            Log-likelihoods tensor of shape (n_stim, n_classes).
+        """
         log_likelihoods = inference.gaussian_log_likelihoods(
             responses,
             self.response_statistics["means"],
@@ -105,14 +129,18 @@ class AMAGauss(AMAParent):
         )
         return log_likelihoods
 
+
     @property
     def response_statistics(self):
-        """Return the class-conditional response statistics.
+        """
+        Return the class-conditional response statistics.
 
-        -----------------
-        Output:
-        -----------------
-            - response_statistics: Dictionary with keys 'means' and 'covariances'
+        Returns
+        -------
+        dict
+            A dictionary containing:
+            - 'means': torch.Tensor of shape (n_classes, n_filters).
+            - 'covariances': torch.Tensor of shape (n_classes, n_filters, n_filters).
         """
         flat_filters = torch.flatten(self.filters, -2, -1)
         dtype = flat_filters.dtype
@@ -138,9 +166,17 @@ class AMAGauss(AMAParent):
         }
         return response_statistics
 
-    # Warn users that the response statistics can't be set
+
     @response_statistics.setter
     def response_statistics(self):
+        """
+        Prevent direct setting of the response statistics.
+
+        Raises
+        ------
+        AttributeError
+            Raised if trying to set response statistics directly.
+        """
         raise AttributeError(
             "Response statistics can't be set directly. "
             "They are computed from the filters and the "
