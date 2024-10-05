@@ -1,9 +1,9 @@
-import torch
 import torch.nn as nn
+
 
 class BuffersDict(nn.Module):
     def __init__(self, stats_dict=None):
-        super(BuffersDict, self).__init__()
+        super().__init__()
         if stats_dict is not None:
             for name, tensor in stats_dict.items():
                 self.register_buffer(name, tensor)
@@ -46,14 +46,14 @@ class BuffersDict(nn.Module):
         def tensor_repr(tensor):
             if tensor.numel() > 10:
                 # Show only the shape and dtype for large tensors
-                return f"tensor(shape={tuple(tensor.shape)}, dtype={tensor.dtype}, device={tensor.device})"
+                string = f"tensor(shape={tuple(tensor.shape)}, dtype={tensor.dtype}"
+                return string
             else:
                 # Use default tensor representation
                 return repr(tensor)
 
         items_repr = ", ".join(
-            f"'{key}': {tensor_repr(value)}"
-            for key, value in self.items()
+            f"'{key}': {tensor_repr(value)}" for key, value in self.items()
         )
         return f"BuffersDict({{{items_repr}}})"
 
