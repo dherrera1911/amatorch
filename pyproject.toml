@@ -1,29 +1,38 @@
+[project]
+name = "amatorch"
+requires-python = ">= 3.7"
+dynamic = ["version"]
+authors = [
+  {name = "Daniel Herrera-Esposito", email = "dherrera1911@gmail.com"}
+]
+description = "Pytorch library for supervised optimal filter learning."
+readme = "README.md"
+license = {text = "MIT License"}
+dependencies = [
+  "numpy>=1.1",
+  "torch>1.8+cpu",
+  "scipy>=1.0",
+  "matplotlib",
+  "importlib-resources>=6.0",
+]
+keywords = ['neuroscience', 'machine learning', 'perception', 'pytorch', 'ideal observer']
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=5.1.2",
+    'pytest-cov',
+    'pytest-xdist']
+
 [build-system]
 requires = ["setuptools >= 61.0"]
 build-backend = "setuptools.build_meta"
 
-[project]
-name = "amatorch"
-requires-python = ">= 3.7, <3.11"
-version = "0.0.0"
-license = {text = "MIT License"}
-authors = [
-  {name = "Daniel Herrera-Esposito", email = "dherrera1911@gmail.com"}
-]
-dependencies = [
-  "numpy",
-  "torch",
-  "matplotlib",
-  "pycircstat",
-  "nose",
-  "decorator",
-  "scipy",
-  "pandas",
-  "seaborn",
-  "importlib-resources",
-]
-description = "A library for learning optimal linear filters given a supervised task"
-
 [project.urls]
 Repository = "https://github.com/dherrera1911/amatorch"
 
+[tool.pytest.ini_options]
+addopts = "--cov=amatorch -n auto"
+testpaths = ["tests"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
