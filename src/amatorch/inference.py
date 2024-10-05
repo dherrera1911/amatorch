@@ -1,14 +1,16 @@
 import torch
 
-__all__ = ['gaussian_log_likelihoods', 'class_statistics']
+__all__ = ["gaussian_log_likelihoods", "class_statistics"]
+
 
 def __dir__():
-      return __all__
+    return __all__
 
 
 def gaussian_log_likelihoods(points, means, covariances):
-    """ Compute log-likelihood of each class given the filter responses,
-    assuming conditional Gaussian distributions.
+    """Compute log-likelihood of each class assuming conditional
+    Gaussian distributions.
+
     -----------------
     Arguments:
     -----------------
@@ -24,16 +26,20 @@ def gaussian_log_likelihoods(points, means, covariances):
     # Distances from means
     distances = points.unsqueeze(1) - means.unsqueeze(0)
     # Quadratic component of log-likelihood
-    quadratic_term = -0.5 * torch.einsum('ncd,cdb,ncb->nc', distances, covariances.inverse(), distances)
+    quadratic_term = -0.5 * torch.einsum(
+        "ncd,cdb,ncb->nc", distances, covariances.inverse(), distances
+    )
     # Constant term
-    constant = -0.5 * n_dim * torch.log(2*torch.tensor(torch.pi)) - \
-        0.5 * torch.logdet(covariances)
+    constant = -0.5 * n_dim * torch.log(
+        2 * torch.tensor(torch.pi)
+    ) - 0.5 * torch.logdet(covariances)
     # 4) Add quadratics and constants to get log-likelihood
     return quadratic_term + constant.unsqueeze(0)
 
 
 def class_statistics(points, labels):
-    """ Compute the mean and covariance of each class.
+    """Compute the mean and covariance of each class.
+
     -----------------
     Arguments:
     -----------------
@@ -53,4 +59,4 @@ def class_statistics(points, labels):
         indices = (labels == i).nonzero().squeeze(1)
         means[i] = torch.mean(points[indices], dim=0)
         covariances[i] = torch.cov(points[indices].t())
-    return {'means': means, 'covariances': covariances}
+    return {"means": means, "covariances": covariances}

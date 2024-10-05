@@ -1,14 +1,16 @@
 from abc import ABC, abstractmethod
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as tfun
 from torch.nn.utils.parametrize import register_parametrization
+
 from amatorch import constraints
 
 
 class AMAParent(ABC, nn.Module):
     def __init__(self, n_dim, n_filters, priors, n_channels=1):
-        """ Abstract AMA parent class.
+        """Abstract AMA parent class.
 
         -----------------
         Arguments:
@@ -30,7 +32,6 @@ class AMAParent(ABC, nn.Module):
         self.filters = nn.Parameter(filters)
         register_parametrization(self, "filters", constraints.Sphere())
 
-
     #########################
     # PREPROCESSING
     #########################
@@ -39,14 +40,13 @@ class AMAParent(ABC, nn.Module):
     def preprocess(self, stimuli):
         pass
 
-
     #########################
     # INFERENCE
     #########################
 
     @abstractmethod
     def responses(self, stimuli):
-        """ Compute the response to each stimulus.
+        """Compute the response to each stimulus.
 
         -----------------
         Arguments:
@@ -59,9 +59,8 @@ class AMAParent(ABC, nn.Module):
         """
         pass
 
-
     def log_likelihoods(self, stimuli):
-        """ Compute the log likelihood of each class for each stimulus.
+        """Compute the log likelihood of each class for each stimulus.
 
         -----------------
         Arguments:
@@ -76,9 +75,8 @@ class AMAParent(ABC, nn.Module):
         log_likelihoods = self.responses_2_log_likelihoods(responses)
         return log_likelihoods
 
-
     def posteriors(self, stimuli):
-        """ Compute the posterior of each class for for each stimulus.
+        """Compute the posterior of each class for for each stimulus.
 
         -----------------
         Arguments:
@@ -93,9 +91,8 @@ class AMAParent(ABC, nn.Module):
         posteriors = self.log_likelihoods_2_posteriors(log_likelihoods)
         return posteriors
 
-
     def estimates(self, stimuli):
-        """ Compute latent variable estimates for each stimulus.
+        """Compute latent variable estimates for each stimulus.
 
         -----------------
         Arguments:
@@ -110,10 +107,9 @@ class AMAParent(ABC, nn.Module):
         estimates = self.posteriors_2_estimates(posteriors=posteriors)
         return estimates
 
-
     @abstractmethod
     def responses_2_log_likelihoods(self, responses):
-        """ Compute log-likelihood of each class given the filter responses.
+        """Compute log-likelihood of each class given the filter responses.
 
         -----------------
         Arguments:
@@ -126,9 +122,8 @@ class AMAParent(ABC, nn.Module):
         """
         pass
 
-
     def log_likelihoods_2_posteriors(self, log_likelihoods):
-        """ Compute the posterior of each class given the log likelihoods.
+        """Compute the posterior of each class given the log likelihoods.
 
         -----------------
         Arguments:
@@ -142,9 +137,8 @@ class AMAParent(ABC, nn.Module):
         posteriors = tfun.softmax(log_likelihoods + torch.log(self.priors), dim=-1)
         return posteriors
 
-
     def posteriors_2_estimates(self, posteriors):
-        """ Convert posterior probabilities to estimates of the latent variable.
+        """Convert posterior probabilities to estimates of the latent variable.
 
         -----------------
         Arguments:
@@ -160,9 +154,9 @@ class AMAParent(ABC, nn.Module):
         estimates = torch.argmax(posteriors, dim=-1)
         return estimates
 
-
     def forward(self, stimuli):
-        """ Compute the class posteriors for the stimuli.
+        """Compute the class posteriors for the stimuli.
+
         -----------------
         Arguments:
         -----------------
