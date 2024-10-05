@@ -23,26 +23,37 @@ def fit(
     decay_step=1000,
     decay_rate=1,
 ):
-    """Learn AMA filters.
+    """
+    Learn AMA filters using Gradient Descent.
 
-    ----------------
-    Arguments:
-    ----------------
-      - model: AMA model object.
-      - stimuli: Stimulus tensor (n_stim x n_channels x n_dim)
-      - labels: Label tensor (n_stim)
-      - epochs: Number of epochs
-      - loss_fun: Loss function. Takes in model, stimuli, and labels.
-          Default is negative log posterior at true category (cross entropy)
-      - batch_size: Batch size. Default is 512
-      - learning_rate: Learning rate. Default is 0.1
-      - decay_step: Number of steps to decay learning rate. Default is 1000
-      - decay_rate: Rate of learning rate decay. Default is 1
-    ----------------
-    Outputs:
-    ----------------
-      - loss: Tensor with loss at each epoch (epochs)
-      - training_time: Time at each epoch (epochs)
+    Parameters
+    ----------
+    model : AMA model object
+        The model used for fitting.
+    stimuli : torch.Tensor
+        Stimuli tensor of shape (n_stim, n_channels, n_dim).
+    labels : torch.Tensor
+        Label tensor of shape (n_stim).
+    epochs : int
+        Number of training epochs.
+    loss_fun : callable, optional
+        Loss function that takes in model, stimuli, and labels.
+        Default is negative log posterior at the true category (cross-entropy).
+    batch_size : int, optional
+        Batch size, by default 512.
+    learning_rate : float, optional
+        Initial learning rate, by default 0.1.
+    decay_step : int, optional
+        Number of steps to decay the learning rate, by default 1000.
+    decay_rate : float, optional
+        Learning rate decay factor, by default 1.
+
+    Returns
+    -------
+    torch.Tensor
+        Tensor containing the loss at each epoch (shape: epochs).
+    torch.Tensor
+        Tensor containing the training time at each epoch (shape: epochs).
     """
     # Create data loader
     dataset = TensorDataset(stimuli, labels)
@@ -101,16 +112,21 @@ def fit(
 
 def kl_loss(model, stimuli, labels):
     """
-    ----------------
-    Arguments:
-    ----------------
-      - model: AMA model object
-      - s: input stimuli. tensor shaped batch x features
-      - ctgInd: true categories of stimuli, as a vector with category index
-    ----------------
-    Outputs:
-    ----------------
-      - loss: Negative LL loss
+    Compute the negative log-likelihood loss (KL loss) for the AMA model.
+
+    Parameters
+    ----------
+    model : AMA model object
+        The model used for loss computation.
+    stimuli : torch.Tensor
+        Input stimuli tensor of shape (batch_size, n_features).
+    labels : torch.Tensor
+        True category labels for the stimuli as a vector of category indices.
+
+    Returns
+    -------
+    torch.Tensor
+        Negative log-likelihood loss.
     """
     n_stimuli = stimuli.shape[0]
     log_posteriors = torch.log(model.posteriors(stimuli) + 1e-8)

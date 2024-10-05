@@ -8,19 +8,23 @@ def __dir__():
 
 
 def gaussian_log_likelihoods(points, means, covariances):
-    """Compute log-likelihood of each class assuming conditional
+    """
+    Compute the log-likelihood of each class assuming conditional
     Gaussian distributions.
 
-    -----------------
-    Arguments:
-    -----------------
-        - points: Points at which to evaluate the log likelihoods (n_points x n_dim)
-        - means: Mean of each class (n_classes x n_dim)
-        - covariances: Covariance of each class (n_classes x n_dim x n_dim)
-    -----------------
-    Output:
-    -----------------
-        - log_likelihoods: Class log likelihoods. (n_points x n_classes)
+    Parameters
+    ----------
+    points : torch.Tensor
+        Points at which to evaluate the log-likelihoods with shape (n_points, n_dim).
+    means : torch.Tensor
+        Mean of each class with shape (n_classes, n_dim).
+    covariances : torch.Tensor
+        Covariance matrix of each class with shape (n_classes, n_dim, n_dim).
+
+    Returns
+    -------
+    torch.Tensor
+        Log-likelihoods for each class with shape (n_points, n_classes).
     """
     n_dim = points.shape[-1]
     # Distances from means
@@ -38,18 +42,23 @@ def gaussian_log_likelihoods(points, means, covariances):
 
 
 def class_statistics(points, labels):
-    """Compute the mean and covariance of each class.
+    """
+    Compute the mean and covariance of each class.
 
-    -----------------
-    Arguments:
-    -----------------
-        - points: Data points (n_points x n_dim)
-        - labels: Class label of each point (n_points)
-    -----------------
-    Output:
-    -----------------
-        - means: Mean of each class (n_classes x n_dim)
-        - covariances: Covariance of each class (n_classes x n_dim x n_dim)
+    Parameters
+    ----------
+    points : torch.Tensor
+        Data points with shape (n_points, n_dim).
+    labels : torch.Tensor
+        Class labels of each point with shape (n_points).
+
+    Returns
+    -------
+    dict
+        A dictionary containing:
+        - means: torch.Tensor of shape (n_classes, n_dim), the mean of each class.
+        - covariances: torch.Tensor of shape (n_classes, n_dim, n_dim), the
+            covariance matrix of each class.
     """
     n_classes = int(torch.max(labels) + 1)
     n_dim = points.shape[-1]

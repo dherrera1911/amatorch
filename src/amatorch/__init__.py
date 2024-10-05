@@ -1,6 +1,6 @@
 # __init__.py
-from . import models
-from . import data
-from . import normalization
-from . import optim
-from . import constraints
+from . import constraints as constraints
+from . import data as data
+from . import models as models
+from . import normalization as normalization
+from . import optim as optim
