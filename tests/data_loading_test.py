@@ -1,6 +1,6 @@
 import torch
 
-from amatorch.data import disparity_data, disparity_filters
+from amatorch.datasets import disparity_data, disparity_filters
 
 
 def test_disparity_data_loading():

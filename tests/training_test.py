@@ -9,7 +9,7 @@ import pytest
 import torch
 
 import amatorch.optim as optim
-from amatorch.data import disparity_data
+from amatorch.datasets import disparity_data
 from amatorch.models import AMAGauss
 
 # Initialize the AMA class

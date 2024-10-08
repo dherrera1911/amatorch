@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 import torch
 
-from amatorch.data import disparity_data, disparity_filters
+from amatorch.datasets import disparity_data, disparity_filters
 from amatorch.models import AMAGauss
 
 TEST_DATA_DIR = os.path.join(os.path.dirname(__file__), "testing_data")
