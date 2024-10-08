@@ -11,6 +11,7 @@ from amatorch.models import AMAGauss
 def data():
     return disparity_data()
 
+@pytest.fixture(scope="module")
 def filters():
     return disparity_filters()
 
@@ -27,7 +28,7 @@ def test_to_dtype(data, filters):
     # Get responses to the stimuli
     responses = ama.responses(data["stimuli"])
 
-    assert responses.dtype == torch.float32, "Posteriors are not float64"
+    assert responses.dtype == torch.float32, "Posteriors are not float32"
 
     # Move to float64
     data['stimuli'] = data['stimuli'].double()
