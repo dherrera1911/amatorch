@@ -54,7 +54,7 @@ def unit_norm_channels(stimuli, c50=torch.as_tensor(0)):
     """
     # Normalizing factor
     n_channels = torch.as_tensor(
-        stimuli.shape[1], dtype=stimuli.dtype, device=stimuli.device
+        stimuli.shape[-2], dtype=stimuli.dtype, device=stimuli.device
     )
     normalizing_factor = torch.sqrt(torch.sum(stimuli**2, dim=-1) + c50) * torch.sqrt(
         n_channels

@@ -23,22 +23,23 @@ def gaussian_log_likelihoods(points, means, covariances):
 
     Returns
     -------
-    torch.Tensor
+    log_likelihoods: torch.Tensor
         Log-likelihoods for each class with shape (n_points, n_classes).
     """
     n_dim = points.shape[-1]
     # Distances from means
-    distances = points.unsqueeze(1) - means.unsqueeze(0)
+    distances = points.unsqueeze(-2) - means.unsqueeze(0)
     # Quadratic component of log-likelihood
     quadratic_term = -0.5 * torch.einsum(
-        "ncd,cdb,ncb->nc", distances, covariances.inverse(), distances
+        "...cd,cdb,...cb->...c", distances, covariances.inverse(), distances
     )
     # Constant term
     constant = -0.5 * n_dim * torch.log(
         2 * torch.tensor(torch.pi)
     ) - 0.5 * torch.logdet(covariances)
     # 4) Add quadratics and constants to get log-likelihood
-    return quadratic_term + constant.unsqueeze(0)
+    log_likelihoods = quadratic_term + constant.unsqueeze(0)
+    return log_likelihoods.squeeze()
 
 
 def class_statistics(points, labels):

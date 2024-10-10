@@ -76,12 +76,12 @@ class AMAGauss(AMAParent):
         Parameters
         ----------
         stimuli : torch.Tensor
-            Stimulus tensor of shape (n_stim, n_channels, n_dim).
+            Stimulus tensor of shape (..., n_channels, n_dim).
 
         Returns
         -------
         torch.Tensor
-            Processed stimuli tensor of shape (n_stim, n_channels, n_dim).
+            Processed stimuli tensor of shape (..., n_channels, n_dim).
         """
         return normalization.unit_norm_channels(stimuli, c50=self.c50)
 
@@ -93,15 +93,15 @@ class AMAGauss(AMAParent):
         Parameters
         ----------
         stimuli : torch.Tensor
-            Stimulus tensor of shape (n_stim, n_channels, n_dim).
+            Stimulus tensor of shape (..., n_channels, n_dim).
 
         Returns
         -------
         torch.Tensor
-            Responses tensor of shape (n_stim, n_filters).
+            Responses tensor of shape (..., n_filters).
         """
         stimuli_processed = self.preprocess(stimuli)
-        responses = torch.einsum("kcd,ncd->nk", self.filters, stimuli_processed)
+        responses = torch.einsum("kcd,...cd->...k", self.filters, stimuli_processed)
         return responses
 
     def responses_2_log_likelihoods(self, responses):
