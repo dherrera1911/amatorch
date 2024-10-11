@@ -27,8 +27,8 @@ def scatter_responses(
         Pair of filters to plot. The default is [0, 1].
     """
     responses_plt, labels_plt = subsample_class_points(responses, labels, n_points)
-    responses_plt = responses[:, filter_pair].detach().cpu().numpy()
-    labels_plt = labels.detach().cpu().numpy()
+    responses_plt = responses_plt[:, filter_pair].detach().cpu().numpy()
+    labels_plt = labels_plt.detach().cpu().numpy()
 
     if values is None:
         values = np.linspace(-1, 1, len(labels.unique()))
