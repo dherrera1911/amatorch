@@ -28,7 +28,7 @@ def plot_filters(model, n_cols=2, n_filters=10):
     axes = np.array(axes).reshape(-1)
 
     # Color code for each channel
-    colors = plt.cm.get_cmap("tab10", n_channels)
+    colors = plt.colormaps.get_cmap("tab10")
 
     for idx, ax in enumerate(axes[:n_filters]):
         filter_data = filters[idx]
