@@ -31,7 +31,7 @@ class AMAGauss(AMAParent):
         ----------
         stimuli : torch.Tensor
             Stimulus tensor of shape (n_stim, n_channels, n_dim).
-        labels : torch.Tensor
+        labels : torch.int64
             Label tensor of shape (n_stim).
         n_filters : int, optional
             Number of filters to use, by default 2.
