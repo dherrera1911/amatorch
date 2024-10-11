@@ -9,7 +9,7 @@ def load_data(data_dir="disparity"):
     )
 
     labels = torch.as_tensor(
-        np.loadtxt(data_dir / "labels.csv", delimiter=",", dtype=int)
+        np.loadtxt(data_dir / "labels.csv", delimiter=",").astype(np.int64)
     )
     labels = labels - 1  # make 0-indexed
 
