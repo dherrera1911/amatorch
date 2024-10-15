@@ -56,8 +56,6 @@ def estimates_ref():
 
 
 class TestAMAGaussResponses:
-
-
     def test_response_values(self, data, filters, responses_ref):
         """Test that AMA-Gauss can obtain responses to stimuli
         and that the responses are the correct shape."""
@@ -85,7 +83,6 @@ class TestAMAGaussResponses:
             responses, responses_ref, atol=1e-6
         ), "Responses are not close to reference"
 
-
     def test_response_shapes(self, data, filters, responses_ref):
         """Test that responses can be obtained for stimuli of
         different shapes preceding channels and pixels."""
@@ -106,19 +103,26 @@ class TestAMAGaussResponses:
         with torch.no_grad():
             responses_single = ama.responses(stimulus_single)
 
-        assert responses_single.shape[0] == (n_filters), "Responses to single stimulus are not the correct shape"
+        assert responses_single.shape[0] == (
+            n_filters
+        ), "Responses to single stimulus are not the correct shape"
 
         # Get responses to stimuli with different preceding dimensions
         stimuli_2d = data["stimuli"][:100].reshape(2, 50, n_channels, n_dim)
         with torch.no_grad():
             responses_2d = ama.responses(stimuli_2d)
 
-        assert responses_2d.shape == (2, 50, n_filters), "Responses to grouped stimuli are not the correct shape"
-        assert torch.allclose(responses_2d[0,0], responses_single), "Responses to grouped stimuli are not the same as to single stimulus"
+        assert responses_2d.shape == (
+            2,
+            50,
+            n_filters,
+        ), "Responses to grouped stimuli are not the correct shape"
+        assert torch.allclose(
+            responses_2d[0, 0], responses_single
+        ), "Responses to grouped stimuli are not the same as to single stimulus"
 
 
 class TestAMAGaussInference:
-
     def test_inference_values(
         self, data, filters, log_likelihoods_ref, posteriors_ref, estimates_ref
     ):
@@ -162,7 +166,6 @@ class TestAMAGaussInference:
             torch.sum(estimates != estimates_ref) < 15
         ), "Estimates are not close to reference"
 
-
     def test_inference_shapes(
         self, data, filters, log_likelihoods_ref, posteriors_ref, estimates_ref
     ):
@@ -187,9 +190,15 @@ class TestAMAGaussInference:
             posteriors_single = ama.posteriors(stimulus_single)
             estimates_single = ama.estimates(stimulus_single)
 
-        assert log_likelihoods_single.shape[0] == n_classes, "Log likelihoods to single stimulus are not the correct shape"
-        assert posteriors_single.shape[0] == n_classes, "Posteriors to single stimulus are not the correct shape"
-        assert estimates_single.shape == (), "Estimates to single stimulus are not the correct shape"
+        assert (
+            log_likelihoods_single.shape[0] == n_classes
+        ), "Log likelihoods to single stimulus are not the correct shape"
+        assert (
+            posteriors_single.shape[0] == n_classes
+        ), "Posteriors to single stimulus are not the correct shape"
+        assert (
+            estimates_single.shape == ()
+        ), "Estimates to single stimulus are not the correct shape"
 
         # Get responses to stimuli with different preceding dimensions
         stimuli_2d = data["stimuli"][:100].reshape(2, 50, n_channels, n_dim)
@@ -198,6 +207,17 @@ class TestAMAGaussInference:
             posteriors_2d = ama.posteriors(stimuli_2d)
             estimates_2d = ama.estimates(stimuli_2d)
 
-        assert log_likelihoods_2d.shape == (2, 50, n_classes), "Log likelihoods to grouped stimuli are not the correct shape"
-        assert posteriors_2d.shape == (2, 50, n_classes), "Posteriors to grouped stimuli are not the correct shape"
-        assert estimates_2d.shape == (2, 50), "Estimates to grouped stimuli are not the correct shape"
+        assert log_likelihoods_2d.shape == (
+            2,
+            50,
+            n_classes,
+        ), "Log likelihoods to grouped stimuli are not the correct shape"
+        assert posteriors_2d.shape == (
+            2,
+            50,
+            n_classes,
+        ), "Posteriors to grouped stimuli are not the correct shape"
+        assert estimates_2d.shape == (
+            2,
+            50,
+        ), "Estimates to grouped stimuli are not the correct shape"

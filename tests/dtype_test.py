@@ -1,11 +1,9 @@
-import os
-
-import numpy as np
 import pytest
 import torch
 
 from amatorch.datasets import disparity_data, disparity_filters
 from amatorch.models import AMAGauss
+
 
 @pytest.fixture(scope="module")
 def data():

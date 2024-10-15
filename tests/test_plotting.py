@@ -1,9 +1,10 @@
 import matplotlib.pyplot as plt
 import pytest
-import amatorch.plot
 
+import amatorch.plot
 from amatorch.datasets import disparity_data, disparity_filters
 from amatorch.models import AMAGauss
+
 
 @pytest.fixture(scope="module")
 def model_outputs():
