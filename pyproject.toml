@@ -102,7 +102,7 @@ select = [
     # pyupgrade
     "UP",
     # flake8-bugbear
-    # "B",
+    "B",
     # flake8-simplify
     "SIM",
     # isort
