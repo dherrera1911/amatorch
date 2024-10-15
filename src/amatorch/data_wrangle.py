@@ -1,5 +1,5 @@
-import torch
 import numpy as np
+import torch
 
 __all__ = ["statistics_dim_subset", "subsample_class_points"]
 
@@ -10,7 +10,7 @@ def __dir__():
 
 def statistics_dim_subset(means, covariances, keep_inds):
     """
-    Keep the statistics for a subset of the dimensions. 
+    Keep the statistics for a subset of the dimensions.
 
     Parameters
     ----------
@@ -55,11 +55,10 @@ def subsample_class_points(points, labels, n_per_class):
     subsampled_labels : torch.Tensor
         Labels or values of the subsampled points. (n_classes * n_points_per_class,)
     """
-    n_classes = np.unique(labels)
     subsampled_points = []
     subsampled_labels = []
 
-    for i, label in enumerate(labels.unique()):
+    for _i, label in enumerate(labels.unique()):
         class_points = points[labels == label]
 
         n_points_class = np.min([n_per_class, class_points.shape[0]])

@@ -45,7 +45,7 @@ def scatter_estimates(
 
 
 def plot_estimates_statistics(
-    estimates, true_values, ax=None, ci_bars=False, quantiles=[0.025, 0.975]
+    estimates, true_values, ax=None, ci_bars=False, quantiles=(0.025, 0.975)
 ):
     """
     Plot the mean estimates by true value.

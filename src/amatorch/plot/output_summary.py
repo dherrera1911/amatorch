@@ -1,7 +1,7 @@
 import torch
 
 
-def output_statistics(model_output, labels, quantiles=[0.025, 0.975]):
+def output_statistics(model_output, labels, quantiles=(0.025, 0.975)):
     """
     Compute the mean and sd of the output for each class.
 

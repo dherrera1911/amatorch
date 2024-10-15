@@ -41,7 +41,7 @@ def single_ellipse(center, covariance, ax, color="black"):
 
 
 def statistics_ellipses(
-    means, covariances, filter_pair=[0, 1], ax=None, values=None, color_map="viridis"
+    means, covariances, filter_pair=(0, 1), ax=None, values=None, color_map="viridis"
 ):
     """
     Plot the ellipses of the filter response statistics across classes.
@@ -53,7 +53,7 @@ def statistics_ellipses(
     covariances : torch.Tensor
         Covariances of the filter responses.
         Shape (n_classes, n_filters, n_filters).
-    filter_pair : list of int, optional
+    filter_pair : tuple of int, optional
         Pair of filters to plot. The default is [0, 1].
     ax : matplotlib.axes.Axes, optional
         Axes to plot the ellipses. If None, a new figure is created.
@@ -65,6 +65,9 @@ def statistics_ellipses(
         Color map to use for the ellipses. The default is 'viridis'.
     """
     n_classes = covariances.shape[0]
+
+    if ax is None:
+        fig, ax = plt.subplots()
 
     if isinstance(color_map, str):
         color_map = plt.get_cmap(color_map)

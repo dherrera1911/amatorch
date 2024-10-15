@@ -7,7 +7,7 @@ def __dir__():
     return __all__
 
 
-def unit_norm(stimuli, c50=torch.as_tensor(0)):
+def unit_norm(stimuli, c50=0):
     """
     Normalize stimuli to have a norm less than or equal to 1.
 
@@ -26,12 +26,13 @@ def unit_norm(stimuli, c50=torch.as_tensor(0)):
     torch.Tensor
         Normalized stimuli tensor of shape (n_stim, n_channels, n_dim).
     """
+    c50 = torch.as_tensor(c50, dtype=stimuli.dtype, device=stimuli.device)
     # Normalizing factor
     normalizing_factor = torch.sqrt(torch.sum(stimuli**2, dim=(-2, -1)) + c50)
     return stimuli / normalizing_factor[:, None, None]
 
 
-def unit_norm_channels(stimuli, c50=torch.as_tensor(0)):
+def unit_norm_channels(stimuli, c50=0):
     """
     Normalize stimuli to have a norm less than or equal to 1, normalizing each
     channel separately.
@@ -52,6 +53,7 @@ def unit_norm_channels(stimuli, c50=torch.as_tensor(0)):
     torch.Tensor
         Normalized stimuli tensor of shape (n_stim, n_channels, n_dim).
     """
+    c50 = torch.as_tensor(c50, dtype=stimuli.dtype, device=stimuli.device)
     # Normalizing factor
     n_channels = torch.as_tensor(
         stimuli.shape[-2], dtype=stimuli.dtype, device=stimuli.device

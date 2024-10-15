@@ -6,7 +6,7 @@ from .utils import get_class_colors
 
 
 def scatter_responses(
-    responses, labels, ax=None, values=None, filter_pair=[0, 1], n_points=1000
+    responses, labels, ax=None, values=None, filter_pair=(0, 1), n_points=1000
 ):
     """
     Plot scatter of the responses to different categories.
@@ -23,7 +23,7 @@ def scatter_responses(
     values : torch.Tensor, optional
         Values to color the points. The default is linearly spaced values
         between -1 and 1.
-    filter_pair : list, optional
+    filter_pair : tuple, optional
         Pair of filters to plot. The default is [0, 1].
     """
     responses_plt, labels_plt = subsample_class_points(responses, labels, n_points)
@@ -32,6 +32,7 @@ def scatter_responses(
 
     if values is None:
         values = np.linspace(-1, 1, len(labels.unique()))
+
     if ax is None:
         _, ax = plt.subplots(figsize=(6, 6))
 
@@ -48,8 +49,4 @@ def scatter_responses(
 
     ax.set_xlabel(f"Filter {filter_pair[0] + 1}")
     ax.set_ylabel(f"Filter {filter_pair[1] + 1}")
-    # Set axis limits
-    ax.set_xlim([-1.1, 1.1])
-    ax.set_ylim([-1.1, 1.1])
-
     return ax
