@@ -30,7 +30,6 @@ class AMAParent(ABC, nn.Module):
         """
         super().__init__()
         self.n_dim = n_dim
-        self.n_filters = n_filters
         self.register_buffer("priors", torch.as_tensor(priors))
 
         # Make initial random filters

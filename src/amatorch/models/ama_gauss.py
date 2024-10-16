@@ -140,13 +140,14 @@ class AMAGauss(AMAParent):
         flat_filters = torch.flatten(self.filters, -2, -1)
         dtype = flat_filters.dtype
         device = flat_filters.device
+        n_filters = flat_filters.shape()[0]
 
         response_means = torch.einsum(
             "cd,kd->ck", self.stimulus_statistics["means"], flat_filters
         )
 
         noise_covariance = (
-            torch.eye(self.n_filters, dtype=dtype, device=device) * self.response_noise
+            torch.eye(n_filters, dtype=dtype, device=device) * self.response_noise
         )
         response_covariances = torch.einsum(
             "kd,cdb,mb->ckm",
