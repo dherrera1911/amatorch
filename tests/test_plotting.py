@@ -40,8 +40,10 @@ def test_filters_plot(model_outputs):
     """Test that the scatter of model responses works."""
     fig = amatorch.plot.plot_filters(model=model_outputs["ama"], n_cols=2)
 
+    n_filters = model_outputs["ama"].filters.shape[0]
+
     axes = fig.get_axes()
-    assert len(axes) == 2, "There should be two axes in the filters plot."
+    assert len(axes) == n_filters, "There should be n_filters axes in the filters plot."
 
 
 def test_response_plot(model_outputs):

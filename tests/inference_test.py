@@ -65,7 +65,6 @@ class TestAMAGaussResponses:
         ama = AMAGauss(
             stimuli=data["stimuli"],
             labels=data["labels"],
-            n_filters=2,
         )
 
         # Assign pretrained filters
@@ -92,7 +91,6 @@ class TestAMAGaussResponses:
         ama = AMAGauss(
             stimuli=data["stimuli"],
             labels=data["labels"],
-            n_filters=2,
         )
 
         # Assign pretrained filters
@@ -181,7 +179,7 @@ class TestAMAGaussInference:
         )
 
         # Assign pretrained filters
-        ama.filters = filters
+        ama.filters = filters[:2]
 
         # Get responses to single stimulus
         stimulus_single = data["stimuli"][0]
