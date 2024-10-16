@@ -46,10 +46,11 @@ loss, training_time = optim.fit(
 ```
 
 The resulting model can be used to obtain posterior probabilities
-of the classes for a given stimulus:
+of the classes for a given stimulus, or the estimated class.
 
 ```python
-posterior = ama.posteriors(stimulus)
+posterior = ama.posteriors(data["stimuli"])
+estimated_class = ama.estimates(data["stimuli"])
 ```
 
 See the tutorials for more details on the model structure,
