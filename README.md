@@ -1,47 +1,74 @@
-# Accuracy Maximization Analysis in Python
+# AMAtorch
 
-`ama_library` is a python library for learning optimal linear filters
-to perform a given supervised task. The library uses the
-"Accuracy Maximization Analysis (AMA)" method[^1]. AMA model has
-been used to study different visual tasks, such as estimation of
-2D speed, binocular disparity, defocus, and 3D stereo motion.
+`amatorch` is a Python implementation of Accuracy Maximization Analysis (AMA),
+a supervised dimensionality reduction method based on maximizing the accuracy
+of a probabilistic decoder (i.e. ideal observer model) for a given task.
+This method has been primarily used to obtain image-computable ideal
+observers for a variety of visual tasks in the context of human vision.
+
+## Overview
+
+`amatorch` provides a set classes implementing variants of the AMA model,
+and utility functions to train and test the model. AMA models
+have two main components: an encoding stage with learnable filters,
+and a decoding stage that uses filter response distributions
+to estimate the stimulus class.
+
+An AMA model can be initialized with a random set of filters and
+trained as follows:
+
+```python
+import amatorch.optim as optim
+from amatorch.datasets import disparity_data
+from amatorch.models import AMAGauss
+
+data = disparity_data()
+
+ama = AMAGauss(
+    stimuli=data["stimuli"],
+    labels=data["labels"],
+    n_filters=2,
+    response_noise=0.05,
+    c50=1.0,
+)
+
+# Fit model
+loss, training_time = optim.fit(
+    model=ama,
+    stimuli=data["stimuli"],
+    labels=data["labels"],
+    epochs=20,
+    batch_size=512,
+    learning_rate=0.1,
+    decay_step=4,
+    decay_rate=0.5,
+)
+```
+
+The resulting model can be used to obtain posterior probabilities
+of the classes for a given stimulus:
+
+```python
+posterior = ama.posteriors(stimulus)
+```
+
+See the tutorials for more details on the model structure,
+its variants and its usage.
+
 
 ## Installation
 
-The package requires Python 3.7 up to 3.10. If conda
-is installed, create a new environment with the following command:
+To install the package, clone the repository, go to the
+downloaded directory and install using pip. In the command
+line, this can be done as follows:
 
 ```bash
-conda create -n my-ama python=3.10
-```
-
-Activate the environment:
-
-```bash
-conda activate my-ama
-```
-
-Then clone the repository and install using pip:
-
-```bash
-git clone git@github.com:dherrera1911/accuracy_maximization_analysis.git
-cd accuracy_maximization_analysis
+git clone git@github.com:dherrera1911/amatorch.git
+cd amatorch
 pip install -e .
 ```
 
-## Usage
-
-The package provides a class `AMA_emp` that can be used to train and test
-the AMA model. Detailed explanations of the model and its usage can be found
-in the tutorials of this repository.
-
-## Development
-
-This package is under development, and at a very early stage.
+For more detailed instructions, see the installation section
+of the tutorials.
 
 
-[^1] For a description of the model see
-the paper "Accuracy Maximization Analysis for Sensory-Perceptual Tasks:
-Computational Improvements, Filter Robustness, and Coding Advantages for
-Scaled Additive Noise" J. Burge; P. Jaini. PLoS Computational Biology (2017),
-and in the tutorials of this repository.
