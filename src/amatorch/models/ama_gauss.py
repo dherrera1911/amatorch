@@ -17,12 +17,11 @@ class AMAGauss(AMAParent):
         self,
         stimuli,
         labels,
-        n_filters=2,
+        n_filters=None,
+        filters=None,
         priors=None,
         response_noise=0.0,
         c50=0.0,
-        device="cpu",
-        dtype=torch.float32,
     ):
         """
         Initialize the AMAGauss model.
@@ -43,18 +42,23 @@ class AMAGauss(AMAParent):
             Offset added to the denominator when normalizing stimuli,
             by default 0.0.
         """
-        # Initialize
         n_channels = stimuli.shape[-2]
+        n_dim = stimuli.shape[-1]
         n_classes = torch.unique(labels).size()[0]
+
+        if filters is not None:
+            assert filters.shape[-2] == n_channels, "Channels of filters don't match stimuli."
+            assert filters.shape[-1] == n_dim, "Dimensions of filters don't match stimuli."
 
         if priors is None:
             priors = torch.ones(n_classes) / n_classes
 
         super().__init__(
+            priors=priors,
             n_dim=stimuli.shape[-1],
             n_filters=n_filters,
-            priors=priors,
             n_channels=n_channels,
+            filters=filters,
         )
         self.register_buffer("c50", torch.as_tensor(c50))
         self.register_buffer("response_noise", torch.as_tensor(response_noise))

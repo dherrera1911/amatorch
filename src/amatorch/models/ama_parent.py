@@ -13,27 +13,32 @@ class AMAParent(ABC, nn.Module):
     Abstract AMA parent class.
     """
 
-    def __init__(self, n_dim, n_filters, priors, n_channels=1):
+    def __init__(self, priors, n_dim=None, n_filters=None, n_channels=1, filters=None):
         """
         Initialize the AMA model.
 
         Parameters
         ----------
-        n_dim : int
+        priors : torch.Tensor
+            Prior probabilities for each class, of shape (n_classes).
+        n_dim : int, optional
             Number of dimensions of inputs.
-        n_filters : int
+        n_filters : int, optional
             Number of filters to use.
         n_channels : int, optional
             Number of channels of the stimuli, by default 1.
-        priors : torch.Tensor
-            Prior probabilities for each class.
+        filters : torch.Tensor, optional
+            Initial filters to use, by default None.
         """
         super().__init__()
-        self.n_dim = n_dim
         self.register_buffer("priors", torch.as_tensor(priors))
 
-        # Make initial random filters
-        filters = torch.randn(n_filters, n_channels, n_dim)
+        if filters is not None:
+            filters = torch.as_tensor(filters)
+        else:
+            assert n_dim is not None and n_filters is not None
+            filters = torch.randn(n_filters, n_channels, n_dim)
+
         # Model parameters
         self.filters = nn.Parameter(filters)
         register_parametrization(self, "filters", constraints.Sphere())
