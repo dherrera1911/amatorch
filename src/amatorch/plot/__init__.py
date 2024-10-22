@@ -2,6 +2,7 @@ from .filters import plot_filters
 from .inference import plot_estimates_statistics, scatter_estimates
 from .responses import scatter_responses
 from .statistics import statistics_ellipses
+from .colors import draw_color_bar
 
 __all__ = [
     "plot_filters",
@@ -9,6 +10,7 @@ __all__ = [
     "statistics_ellipses",
     "scatter_estimates",
     "plot_estimates_statistics",
+    "draw_color_bar",
 ]
 
 
