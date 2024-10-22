@@ -129,7 +129,7 @@ def kl_loss(model, stimuli, labels):
         Negative log-likelihood loss.
     """
     n_stimuli = stimuli.shape[0]
-    log_posteriors = torch.log(model.posteriors(stimuli) + 1e-8)
+    log_posteriors = torch.log(model.get_posteriors(stimuli) + 1e-8)
     correct_log_posteriors = log_posteriors[torch.arange(n_stimuli), labels]
     loss = -torch.mean(correct_log_posteriors)
     return loss

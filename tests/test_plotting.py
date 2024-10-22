@@ -19,9 +19,9 @@ def model_outputs():
     )
     ama.filters = filters
 
-    responses = ama.responses(data["stimuli"])
-    posteriors = ama.posteriors(data["stimuli"])
-    estimates_labels = ama.estimates(data["stimuli"])
+    responses = ama.get_responses(data["stimuli"])
+    posteriors = ama.get_posteriors(data["stimuli"])
+    estimates_labels = ama.get_estimates(data["stimuli"])
     estimates_values = data["values"][estimates_labels]
     true_values = data["values"][data["labels"]]
     return {

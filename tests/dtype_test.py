@@ -24,7 +24,7 @@ def test_to_dtype(data, filters):
     )
 
     # Get responses to the stimuli
-    responses = ama.responses(data["stimuli"])
+    responses = ama.get_responses(data["stimuli"])
 
     assert responses.dtype == torch.float32, "Posteriors are not float32"
 
@@ -32,8 +32,8 @@ def test_to_dtype(data, filters):
     data['stimuli'] = data['stimuli'].double()
     ama.to(data['stimuli'])
 
-    responses = ama.responses(data["stimuli"])
-    posteriors = ama.posteriors(data["stimuli"])
+    responses = ama.get_responses(data["stimuli"])
+    posteriors = ama.get_posteriors(data["stimuli"])
 
     assert posteriors.dtype == torch.float64, "Posteriors are not float64"
     assert responses.dtype == torch.float64, "Responses are not float64"

@@ -50,7 +50,7 @@ def test_training(data):
     )
 
     # Get the posteriors
-    posteriors = ama.posteriors(data["stimuli"])
+    posteriors = ama.get_posteriors(data["stimuli"])
 
     # Sample from the distribution
     assert not torch.isnan(ama.filters.detach()).any(), "Filters are nan"
