@@ -1,21 +1,23 @@
 # AMAtorch
 
 `amatorch` is a Python implementation of Accuracy Maximization Analysis (AMA),
-a supervised dimensionality reduction method based on maximizing the accuracy
-of a probabilistic decoder (i.e. ideal observer model) for a given task.
-This method has been primarily used to obtain image-computable ideal
-observers for a variety of visual tasks in the context of human vision.
+a supervised feature learning method based on maximizing the accuracy
+of a probabilistic decoder for a given task. AMA has been primarily
+used to obtain image-computable ideal observers for various visual tasks
+to study human vision.
 
 ## Overview
 
-`amatorch` provides a set classes implementing variants of the AMA model,
-and utility functions to train and test the model. AMA models
-have two main components: an encoding stage with learnable filters,
-and a decoding stage that uses filter response distributions
+`amatorch` currently implements the AMA-Gauss variant of the AMA model
+(more variants are in development). It also includes functions to
+train and test the model.
+
+AMA models have two main components: an encoding stage with learnable
+filters, and a decoding stage that uses filter response distributions
 to estimate the stimulus class.
 
 An AMA model can be initialized with a random set of filters and
-trained as follows:
+trained with `amatorch` as follows:
 
 ```python
 import amatorch.optim as optim
@@ -46,7 +48,7 @@ loss, training_time = optim.fit(
 ```
 
 The resulting model can be used to obtain posterior probabilities
-of the classes for a given stimulus, or the estimated class.
+of the classes for a given stimulus and the estimated class.
 
 ```python
 posterior = ama.posteriors(data["stimuli"])
@@ -69,7 +71,7 @@ cd amatorch
 pip install -e .
 ```
 
-For more detailed instructions, see the installation section
-of the tutorials.
-
+We recommend installing the package in a virtual
+environment (e.g. using `conda`). For more detailed instructions, see the
+installation section of the tutorials.
 
