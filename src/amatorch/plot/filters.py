@@ -37,15 +37,29 @@ def plot_filters(model, n_cols=2, n_filters=10):
         for ch in range(n_channels):
             ax.plot(filter_data[ch], color=colors(ch), label=f"Channel {ch+1}")
 
-        ax.set_title(f"Filter {idx+1}", fontsize=14)
-        # ax.set_xticks([])
-        ax.set_ylabel("Weight")
+        ax.set_title(f"Filter {idx+1}")
 
-    handles, labels = axes[-1].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="upper center")
+        # Calculate row and column indices
+        row = idx // n_cols
+        col = idx % n_cols
+
+        # Show y-axis labels and ticks only on the first column
+        if col == 0:
+            ax.set_ylabel("Weight")
+        else:
+            ax.tick_params(axis='y', which='both', left=False, labelleft=False)
+
+        # Show x-axis labels and ticks only on the last row
+        if not row == n_rows - 1:
+            ax.tick_params(axis='x', which='both', bottom=False, labelbottom=False)
 
     # Hide unused axes
     for ax in axes[n_filters:]:
         ax.axis("off")
+
+    plt.subplots_adjust(top=0.85)
+    handles, legend_labels = axes[-1].get_legend_handles_labels()
+    fig.legend(handles, legend_labels, loc='lower center',
+        bbox_to_anchor=(0.5, 1.0), ncols=int(n_filters/2))
 
     return fig
