@@ -1,5 +1,7 @@
 # AMAtorch
 
+![](docs/source/_static/amatorch.svg)
+
 `amatorch` is a Python implementation of Accuracy Maximization Analysis (AMA),
 a supervised feature learning method based on maximizing the accuracy
 of a probabilistic decoder for a given task. AMA has been primarily
