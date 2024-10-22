@@ -26,13 +26,13 @@
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#d1d1d1"
      inkscape:document-units="mm"
-     inkscape:zoom="2.672559"
-     inkscape:cx="47.894172"
-     inkscape:cy="40.597794"
-     inkscape:window-width="1680"
-     inkscape:window-height="1013"
-     inkscape:window-x="0"
-     inkscape:window-y="30"
+     inkscape:zoom="4"
+     inkscape:cx="86.25"
+     inkscape:cy="29.625"
+     inkscape:window-width="1920"
+     inkscape:window-height="1043"
+     inkscape:window-x="1680"
+     inkscape:window-y="0"
      inkscape:window-maximized="1"
      inkscape:current-layer="layer1" />
   <defs
@@ -42,6 +42,13 @@
      inkscape:groupmode="layer"
      id="layer1"
      transform="translate(-0.67266519,-1.3420263)">
+    <rect
+       style="fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:0.1;stroke-dasharray:none;stroke-opacity:1"
+       id="rect1"
+       width="47.914577"
+       height="16.569025"
+       x="0.67290521"
+       y="1.3422289" />
     <ellipse
        style="fill:#aa8800;fill-opacity:0.560975;stroke:#aa8800;stroke-width:0.19736"
        id="path1-5-2"
@@ -67,13 +74,13 @@
        transform="rotate(59.656937)" />
     <text
        xml:space="preserve"
-       style="font-size:7.05556px;line-height:1.25;font-family:helvetica;-inkscape-font-specification:helvetica;letter-spacing:0px;word-spacing:0px;stroke-width:0.264583"
+       style="font-size:7.05556px;line-height:1.25;font-family:helvetica;-inkscape-font-specification:helvetica;letter-spacing:0px;word-spacing:0px;stroke-width:0.264583;stroke:none;stroke-opacity:1;fill:#000000"
        x="18.02293"
        y="11.05249"
        id="text1"><tspan
          sodipodi:role="line"
          id="tspan1"
-         style="font-size:7.05556px;stroke-width:0.264583"
+         style="font-size:7.05556px;stroke-width:0.264583;stroke:none;stroke-opacity:1;fill:#000000"
          x="18.02293"
          y="11.05249">amatorch</tspan></text>
   </g>
