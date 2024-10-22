@@ -107,6 +107,7 @@ select = [
     "SIM",
     # isort
     "I",
+    "D",
 ]
 ignore = ["SIM105"]
 

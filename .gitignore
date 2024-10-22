@@ -2,3 +2,7 @@
 *.pyc
 *.swp
 *.swo
+docs/build
+src/amatorch.egg-info
+src/amatorch/plot/plot_test.py
+tests/testing_data/
