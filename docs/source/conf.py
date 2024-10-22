@@ -23,6 +23,7 @@ myst_enable_extensions = [
     "colon_fence",
     "deflist",
     "dollarmath",
+    "html_image",
 ]
 
 templates_path = ["_templates"]
