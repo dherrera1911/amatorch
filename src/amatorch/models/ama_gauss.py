@@ -89,7 +89,7 @@ class AMAGauss(AMAParent):
         """
         return normalization.unit_norm_channels(stimuli, c50=self.c50)
 
-    def responses(self, stimuli):
+    def get_responses(self, stimuli):
         """
         Compute the responses of the filters to the stimuli after
         pre-processing.
