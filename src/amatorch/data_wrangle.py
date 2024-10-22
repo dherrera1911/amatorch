@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-__all__ = ["statistics_dim_subset", "subsample_class_points"]
+__all__ = ["statistics_dim_subset", "subsample_class_points", "subsample_classes"]
 
 
 def __dir__():
@@ -68,3 +68,31 @@ def subsample_class_points(points, labels, n_per_class):
     subsampled_points = torch.cat(subsampled_points, dim=0)
     subsampled_labels = torch.cat(subsampled_labels, dim=0)
     return subsampled_points, subsampled_labels
+
+
+def subsample_classes(points, labels, classes_to_keep=None):
+    """
+    Return only the points and labels for the classes to keep.
+
+    Parameters
+    ----------
+    points : torch.Tensor
+        Points to subsample. (n_points, n_dim)
+    labels : torch.Tensor
+        Labels or values of the points. (n_points,)
+    classes_to_keep : list
+        List of classes to keep.
+
+    Returns
+    -------
+    subsampled_points : torch.Tensor
+        Subsampled points. (n_points_subsampled, n_dim)
+    subsampled_labels : torch.Tensor
+        Labels or values of the subsampled points. (n_points_subsampled,)
+    """
+    if classes_to_keep is None:
+        return points, labels
+    else:
+        subsampled_points = points[torch.tensor([label in classes_to_keep for label in labels])]
+        subsampled_labels = labels[torch.tensor([label in classes_to_keep for label in labels])]
+        return subsampled_points, subsampled_labels
