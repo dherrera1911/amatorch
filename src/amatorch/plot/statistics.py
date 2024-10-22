@@ -4,7 +4,8 @@ import torch
 from matplotlib import patches
 
 from ..data_wrangle import statistics_dim_subset
-from .utils import get_class_colors
+from .colors import get_class_rgba, get_normalized_color_map
+
 
 
 def single_ellipse(center, covariance, ax, color="black"):
@@ -41,7 +42,8 @@ def single_ellipse(center, covariance, ax, color="black"):
 
 
 def statistics_ellipses(
-    means, covariances, filter_pair=(0, 1), ax=None, values=None, color_map="viridis"
+    means, covariances, filter_pair=(0, 1), ax=None, values=None,
+    classes_plot=None, color_map="viridis", legend_type='none', **kwargs
 ):
     """
     Plot the ellipses of the filter response statistics across classes.
@@ -61,32 +63,59 @@ def statistics_ellipses(
     values : torch.Tensor, optional
         Values to color code the ellipses. Each value corresponds to a
         class. The default is linearly spaced values between -1 and 1.
+    classes_plot : list, optional
+        List of classes to plot. The default is all classes.
     color_map : str or matplotlib.colors.Colormap, optional
         Color map to use for the ellipses. The default is 'viridis'.
-    """
-    n_classes = covariances.shape[0]
+    legend_type : str, optional
+        Type of legend to add: 'none', 'continuous', 'discrete'.
 
+    Returns
+    -------
+    ax : matplotlib.axes.Axes
+        Axes with the scatter plot.
+    """
     if ax is None:
-        fig, ax = plt.subplots()
+        _, ax = plt.subplots()
+
+    if classes_plot is None:
+        classes_plot = np.arange(means.shape[0])
+
+    if values is None:
+        values = np.arange(len(classes_plot))
+    else:
+        values = values.numpy()
 
     if isinstance(color_map, str):
         color_map = plt.get_cmap(color_map)
 
-    if values is None:
-        values = torch.linspace(-1, 1, n_classes)
+    class_colors = get_class_rgba(color_map, values)
 
     means_subset, covariances_subset = statistics_dim_subset(
         means, covariances, filter_pair
     )
 
-    class_colors = get_class_colors(color_map, values)
-
-    for i in range(n_classes):
+    for _, ind in enumerate(classes_plot):
         single_ellipse(
-            center=means_subset[i],
-            covariance=covariances_subset[i],
+            center=means_subset[ind],
+            covariance=covariances_subset[ind],
             ax=ax,
-            color=class_colors[i],
+            color=class_colors[ind],
         )
     ax.autoscale_view()
+
+    ax.set_xlabel(f"Response {filter_pair[0] + 1}")
+    ax.set_ylabel(f"Response {filter_pair[1] + 1}")
+
+    if legend_type == 'continuous':
+        color_map, norm = get_normalized_color_map(color_map, values)
+        sm = plt.cm.ScalarMappable(cmap=color_map, norm=norm)
+        sm.set_array([])
+        plt.colorbar(sm, ax=ax, **kwargs)
+
+    elif legend_type == 'discrete':
+        for _, ind in enumerate(classes_plot):
+            ax.scatter([], [], c=[class_colors[ind]], label=values[ind])
+        ax.legend(**kwargs)
+
     return ax
