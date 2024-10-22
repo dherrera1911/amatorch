@@ -1,6 +1,6 @@
 # AMAtorch
 
-<img src="docs/source/_static/amatorch.svg" alt="Alt Text" width="300" height="200">
+<img src="docs/source/_static/amatorch.svg" width="300" height="200">
 
 `amatorch` is a Python implementation of Accuracy Maximization Analysis (AMA),
 a supervised feature learning method based on maximizing the accuracy
