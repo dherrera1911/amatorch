@@ -36,7 +36,8 @@ class AMAParent(ABC, nn.Module):
         if filters is not None:
             filters = torch.as_tensor(filters)
         else:
-            assert n_dim is not None and n_filters is not None
+            assert n_dim is not None, "n_dim must be provided if filters is not provided"
+            assert n_filters is not None, "n_filters must be provided if filters is not provided"
             filters = torch.randn(n_filters, n_channels, n_dim)
 
         # Model parameters
@@ -69,7 +70,7 @@ class AMAParent(ABC, nn.Module):
     #########################
 
     @abstractmethod
-    def responses(self, stimuli):
+    def get_responses(self, stimuli):
         """
         Compute the response to each stimulus.
 
@@ -85,7 +86,7 @@ class AMAParent(ABC, nn.Module):
         """
         pass
 
-    def log_likelihoods(self, stimuli):
+    def get_log_likelihoods(self, stimuli):
         """
         Compute the log-likelihood of each class for each stimulus.
 
@@ -99,11 +100,11 @@ class AMAParent(ABC, nn.Module):
         torch.Tensor
             Log-likelihoods tensor of shape (n_stim, n_classes).
         """
-        responses = self.responses(stimuli=stimuli)
+        responses = self.get_responses(stimuli=stimuli)
         log_likelihoods = self.responses_2_log_likelihoods(responses)
         return log_likelihoods
 
-    def posteriors(self, stimuli):
+    def get_posteriors(self, stimuli):
         """
         Compute the posterior of each class for each stimulus.
 
@@ -117,11 +118,11 @@ class AMAParent(ABC, nn.Module):
         torch.Tensor
             Posteriors tensor of shape (n_stim, n_classes).
         """
-        log_likelihoods = self.log_likelihoods(stimuli=stimuli)
+        log_likelihoods = self.get_log_likelihoods(stimuli=stimuli)
         posteriors = self.log_likelihoods_2_posteriors(log_likelihoods)
         return posteriors
 
-    def estimates(self, stimuli):
+    def get_estimates(self, stimuli):
         """
         Compute latent variable estimates for each stimulus.
 
@@ -135,7 +136,7 @@ class AMAParent(ABC, nn.Module):
         torch.Tensor
             Estimates tensor of shape (n_stim).
         """
-        posteriors = self.posteriors(stimuli=stimuli)
+        posteriors = self.get_posteriors(stimuli=stimuli)
         estimates = self.posteriors_2_estimates(posteriors=posteriors)
         return estimates
 
@@ -206,5 +207,5 @@ class AMAParent(ABC, nn.Module):
         torch.Tensor
             Posteriors tensor of shape (n_stim, n_classes).
         """
-        posteriors = self.posteriors(stimuli)
+        posteriors = self.get_posteriors(stimuli)
         return posteriors
