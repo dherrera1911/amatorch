@@ -53,8 +53,8 @@ The resulting model can be used to obtain posterior probabilities
 of the classes for a given stimulus and the estimated class.
 
 ```python
-posterior = ama.posteriors(data["stimuli"])
-estimated_class = ama.estimates(data["stimuli"])
+posterior = ama.get_posteriors(data["stimuli"])
+estimated_class = ama.get_estimates(data["stimuli"])
 ```
 
 See the tutorials for more details on the model structure,
