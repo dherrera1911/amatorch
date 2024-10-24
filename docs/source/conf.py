@@ -3,6 +3,18 @@
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
+
+# -- Path setup --------------------------------------------------------------
+
+# If extensions (or modules to document with autodoc) are in another directory,
+# add these directories to sys.path here. If the directory is relative to the
+# documentation root, use os.path.abspath to make it absolute, like shown here.
+#
+import os
+import sys
+
+sys.path.insert(0, os.path.abspath("../../src/"))
+
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
@@ -16,7 +28,23 @@ release = "0.1"
 
 extensions = [
     "myst_nb",
+    "sphinx.ext.napoleon",
+    "sphinx.ext.autosummary",
+    "sphinx.ext.autodoc",
+    "numpydoc",
 ]
+
+autosummary_generate = True
+
+autodoc_default_options = {
+    'members': True,
+    'undoc-members': False,
+    'private-members': False,
+    'special-members': False,
+    'inherited-members': False,
+    'show-inheritance': True,
+    'module-first': True,
+}
 
 myst_enable_extensions = [
     "amsmath",
@@ -29,6 +57,18 @@ myst_enable_extensions = [
 templates_path = ["_templates"]
 exclude_patterns = []
 
+# Napoleon settings
+napoleon_google_docstring = False
+napoleon_numpy_docstring = True
+napoleon_include_init_with_doc = False
+napoleon_include_private_with_doc = False
+napoleon_include_special_with_doc = True
+napoleon_use_admonition_for_examples = False
+napoleon_use_admonition_for_notes = False
+napoleon_use_admonition_for_references = False
+napoleon_use_ivar = False
+napoleon_use_param = True
+napoleon_use_rtype = True
 
 
 # -- Options for HTML output -------------------------------------------------
