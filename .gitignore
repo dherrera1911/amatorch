@@ -3,6 +3,7 @@
 *.swp
 *.swo
 docs/build
+docs/source/generated
 src/amatorch.egg-info
 src/amatorch/plot/plot_test.py
 tests/testing_data/
