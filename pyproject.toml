@@ -24,6 +24,26 @@ dev = [
     'pytest-cov',
     'pytest-xdist']
 
+# Copied from plenoptic
+docs = [
+     'sphinx',
+     'myst-nb',
+     # fix sphinx 7 incompatibility issue
+     'sphinx_rtd_theme>=1.3.0rc1',
+     'numpydoc',
+     'nbsphinx',
+     'nbsphinx_link',
+     'sphinxcontrib-apidoc',
+     'sphinx-autodoc-typehints',
+     # because of this issue:
+     # https://nbsphinx.readthedocs.io/en/0.6.0/installation.html#Pygments-Lexer-for-Syntax-Highlighting
+     'ipython',
+     'sphinx-copybutton',
+     'sphinxemoji',
+     'sphinx-inline-tabs',
+     'docutils>=0.18.1,<0.21',
+]
+
 [build-system]
 requires = ["setuptools >= 61.0"]
 build-backend = "setuptools.build_meta"
