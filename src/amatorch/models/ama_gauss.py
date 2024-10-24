@@ -3,7 +3,7 @@ import torch
 from amatorch import inference, normalization
 
 from .ama_parent import AMAParent
-from .buffers_dict import BuffersDict
+from ._buffers_dict import BuffersDict
 
 
 class AMAGauss(AMAParent):

@@ -1,3 +1,7 @@
+"""
+Functions to normalize tensors in different ways.
+"""
+
 import torch
 
 __all__ = ["unit_norm", "unit_norm_channels"]

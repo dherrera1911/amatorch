@@ -1,3 +1,7 @@
+"""
+Utility functions for wrangling and subsampling data, outputs and statistics.
+"""
+
 import numpy as np
 import torch
 

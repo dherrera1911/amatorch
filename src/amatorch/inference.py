@@ -1,3 +1,8 @@
+"""
+Compute probability of observed points given a set of distributions (and
+obtain the distribution parameters given a labeled dataset).
+"""
+
 import torch
 
 __all__ = ["gaussian_log_likelihoods", "class_statistics"]

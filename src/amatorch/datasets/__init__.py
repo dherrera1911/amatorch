@@ -1,3 +1,7 @@
+"""
+Load datasets and pre-trained filters.
+"""
+
 from importlib import resources
 
 from .load import load_data, load_filters

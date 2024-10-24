@@ -1,3 +1,8 @@
+"""
+Utilities for plotting model parameters (filters and statistics) and
+model outputs (responses, posteriors and estimates).
+"""
+
 from .filters import plot_filters
 from .inference import plot_estimates_statistics, scatter_estimates
 from .responses import scatter_responses

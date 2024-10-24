@@ -1,3 +1,8 @@
+"""
+Constraints to keep the filters on a certain set (e.g. sphere), or to fix
+some filter values during training.
+"""
+
 import torch.nn as nn
 
 import amatorch.normalization as normalization

@@ -1,3 +1,7 @@
+"""
+Routine to fit AMA filters using Gradient Descent.
+"""
+
 import time
 
 import torch
@@ -24,7 +28,9 @@ def fit(
     decay_rate=1,
 ):
     """
-    Learn AMA filters using Gradient Descent.
+    Learn AMA filters using Gradient Descent, with the option to specify a custom loss function,
+    and optimizer and scheduler hyperparameters.
+
 
     Parameters
     ----------

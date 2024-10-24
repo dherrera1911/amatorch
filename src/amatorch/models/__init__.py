@@ -1,3 +1,7 @@
+"""
+Subpackage with the implemented AMA model variants.
+"""
+
 from .ama_gauss import AMAGauss
 
 __all__ = ["AMAGauss"]
