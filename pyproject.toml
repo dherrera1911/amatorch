@@ -18,6 +18,7 @@ dependencies = [
 ]
 keywords = ['neuroscience', 'machine learning', 'perception', 'pytorch', 'ideal observer']
 
+
 [project.optional-dependencies]
 dev = [
     "pytest>=5.1.2",
@@ -48,15 +49,25 @@ docs = [
 requires = ["setuptools >= 61.0"]
 build-backend = "setuptools.build_meta"
 
+
 [project.urls]
 Repository = "https://github.com/dherrera1911/amatorch"
+
 
 [tool.pytest.ini_options]
 addopts = "--cov=amatorch --cov-report term-missing -n auto"
 testpaths = ["tests"]
 
+
 [tool.setuptools.packages.find]
 where = ["src"]
+
+
+[tool.setuptools_scm]
+write_to = "src/amatorch/version.py"
+version_scheme = 'python-simplified-semver'
+local_scheme = 'no-local-version'
+
 
 [tool.ruff]
 extend-include = ["*.ipynb"]
@@ -98,6 +109,7 @@ line-length = 88
 
 indent-width = 4 # same as Black
 
+
 [tool.ruff.format]
 # Like Black, use double quotes for strings.
 quote-style = "double"
@@ -130,6 +142,7 @@ select = [
     "D",
 ]
 ignore = ["SIM105"]
+
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
