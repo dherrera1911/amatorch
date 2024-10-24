@@ -63,6 +63,14 @@ testpaths = ["tests"]
 where = ["src"]
 
 
+[tool.setuptools]
+include-package-data = true
+
+
+[tool.setuptools.package-data]
+amatorch = ["datasets/disparity/*.csv"]
+
+
 [tool.setuptools_scm]
 write_to = "src/amatorch/version.py"
 version_scheme = 'python-simplified-semver'
