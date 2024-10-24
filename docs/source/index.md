@@ -15,3 +15,11 @@ maxdepth: 2
 tutorials/ama_model_structure.md
 ```
 
+
+```{toctree}
+---
+maxdepth: 2
+---
+models_api.md
+```
+
